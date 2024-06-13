@@ -2,18 +2,24 @@ package SuspensionSystem
   import SI = Modelica.Units.SI;
   package Components   class RoadProfile
       parameter Real roadRoughness = 3 "Road height StdDeviation in cm";
-      Modelica.Mechanics.MultiBody.Joints.Prismatic Road(boxHeight = 0.1, n = {0, 1, 0}, useAxisFlange = true) annotation(
+      Modelica.Mechanics.MultiBody.Joints.Prismatic Road(boxColor = {100, 100, 100},boxHeight = 1, boxWidth = 1, n = {0, 1, 0}, s(start = 0.5), useAxisFlange = true) annotation(
         Placement(visible = true, transformation(origin = {38, -16}, extent = {{-30, -30}, {30, 30}}, rotation = 90)));
       Modelica.Mechanics.Translational.Sources.Position position(a(fixed = false), exact = false, v(fixed = false)) annotation(
         Placement(visible = true, transformation(origin = {-22, 8}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
       Modelica.Mechanics.MultiBody.Interfaces.Frame_b zR annotation(
         Placement(visible = true, transformation(origin = {38, 96}, extent = {{-16, -16}, {16, 16}}, rotation = 90), iconTransformation(origin = {-2, 96}, extent = {{-16, -16}, {16, 16}}, rotation = -90)));
       Modelica.Blocks.Continuous.Filter LPF(f_cut = 1, gain = roadRoughness, order = 1) annotation(
-        Placement(visible = true, transformation(origin = {-56, 8}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-      Modelica.Blocks.Noise.NormalNoise normalNoise(enableNoise = true, samplePeriod = 0.01, sigma = 0.05, startTime = 0.1, useAutomaticLocalSeed = false, useGlobalSeed = false) annotation(
-        Placement(visible = true, transformation(origin = {-88, 8}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+        Placement(visible = true, transformation(origin = {-90, 10}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+      Modelica.Blocks.Noise.NormalNoise normalNoise(enableNoise = true, mu = 0, samplePeriod = 0.01, sigma = 0.05, startTime = 0.1, useAutomaticLocalSeed = false, useGlobalSeed = false) annotation(
+        Placement(visible = true, transformation(origin = {-120, 10}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
   Modelica.Mechanics.MultiBody.Interfaces.Frame_a world_a annotation(
-        Placement(visible = true, transformation(origin = {38, -86}, extent = {{-16, -16}, {16, 16}}, rotation = -90), iconTransformation(origin = {-100, -66}, extent = {{-16, -16}, {16, 16}}, rotation = 0)));
+        Placement(visible = true, transformation(origin = {-98, -72}, extent = {{-16, -16}, {16, 16}}, rotation = 180), iconTransformation(origin = {-100, -66}, extent = {{-16, -16}, {16, 16}}, rotation = 0)));
+  Modelica.Mechanics.MultiBody.Parts.FixedTranslation y(r = {0, -roadRoughness / 100 * 3, 0})  annotation(
+        Placement(visible = true, transformation(origin = {38, -76}, extent = {{-10, -10}, {10, 10}}, rotation = 90)));
+  Modelica.Blocks.Math.Add add annotation(
+        Placement(visible = true, transformation(origin = {-54, 6}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  Modelica.Blocks.Sources.RealExpression realExpression(y = roadRoughness / 100 * 3)  annotation(
+        Placement(visible = true, transformation(origin = {-88, -24}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
     equation
       connect(position.support, Road.support) annotation(
         Line(points = {{-22, -2}, {-22, -28}, {20, -28}}, color = {0, 127, 0}));
@@ -21,12 +27,18 @@ package SuspensionSystem
         Line(points = {{-12, 8}, {20, 8}}, color = {0, 127, 0}));
       connect(zR, Road.frame_b) annotation(
         Line(points = {{38, 96}, {38, 14}}));
-      connect(normalNoise.y, LPF.u) annotation(
-        Line(points = {{-77, 8}, {-68, 8}}, color = {0, 0, 127}));
-      connect(LPF.y, position.s_ref) annotation(
-        Line(points = {{-44, 8}, {-34, 8}}, color = {0, 0, 127}));
-  connect(world_a, Road.frame_a) annotation(
-        Line(points = {{38, -86}, {38, -46}}));
+  connect(normalNoise.y, LPF.u) annotation(
+        Line(points = {{-109, 10}, {-102, 10}}, color = {0, 0, 127}));
+  connect(world_a, y.frame_a) annotation(
+        Line(points = {{-98, -72}, {-16, -72}, {-16, -96}, {38, -96}, {38, -86}}));
+  connect(y.frame_b, Road.frame_a) annotation(
+        Line(points = {{38, -66}, {38, -46}}, color = {95, 95, 95}));
+  connect(add.y, position.s_ref) annotation(
+        Line(points = {{-43, 6}, {-38, 6}, {-38, 8}, {-34, 8}}, color = {0, 0, 127}));
+  connect(LPF.y, add.u1) annotation(
+        Line(points = {{-78, 10}, {-72, 10}, {-72, 12}, {-66, 12}}, color = {0, 0, 127}));
+  connect(realExpression.y, add.u2) annotation(
+        Line(points = {{-76, -24}, {-72, -24}, {-72, 0}, {-66, 0}}, color = {0, 0, 127}));
     end RoadProfile;
 
     model QuarterCarModel
@@ -36,8 +48,6 @@ package SuspensionSystem
       parameter Modelica.Units.SI.TranslationalSpringConstant kB = 20000;
       //parameter Modelica.Units.SI.TranslationalDampingConstant cT;
       parameter Modelica.Units.SI.TranslationalSpringConstant kT = 250000;
-  Modelica.Mechanics.MultiBody.Forces.SpringDamperParallel suspensionSpringDamper(c = kB, d = cB, s_unstretched = 1)  annotation(
-        Placement(visible = true, transformation(origin = {0, 12}, extent = {{-24, -24}, {24, 24}}, rotation = 90)));
   Modelica.Mechanics.MultiBody.Interfaces.Frame_a zR annotation(
         Placement(visible = true, transformation(origin = {0, -100}, extent = {{-16, -16}, {16, 16}}, rotation = -90), iconTransformation(origin = {-2, -100}, extent = {{-16, -16}, {16, 16}}, rotation = -90)));
   SuspensionSystem.Components.Wheel wheel annotation(
@@ -46,15 +56,23 @@ package SuspensionSystem
         Placement(visible = true, transformation(origin = {-2, 130}, extent = {{-16, -16}, {16, 16}}, rotation = -90), iconTransformation(origin = {-6, 94}, extent = {{-16, -16}, {16, 16}}, rotation = -90)));
   Modelica.Mechanics.MultiBody.Parts.PointMass bodyMass(m = mB, r_0(start = {0, 1.2, 0}), stateSelect = StateSelect.default)  annotation(
         Placement(visible = true, transformation(origin = {0, 70}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  Modelica.Mechanics.MultiBody.Forces.Damper damper(d = cB)  annotation(
+        Placement(visible = true, transformation(origin = {-26, 14}, extent = {{-18, -18}, {18, 18}}, rotation = 90)));
+  Modelica.Mechanics.MultiBody.Forces.Spring spring(c = kB, s_unstretched = 1)  annotation(
+        Placement(visible = true, transformation(origin = {35, 15}, extent = {{-17, -17}, {17, 17}}, rotation = 90)));
     equation
       connect(wheel.zR, zR) annotation(
         Line(points = {{0, -66}, {0, -100}}, color = {95, 95, 95}));
-      connect(wheel.zT, suspensionSpringDamper.frame_a) annotation(
-        Line(points = {{0, -34}, {0, -12}}));
-  connect(bodyMass.frame_a, suspensionSpringDamper.frame_b) annotation(
-        Line(points = {{0, 70}, {0, 36}}));
-  connect(bodyMass.frame_a, z) annotation(
+      connect(bodyMass.frame_a, z) annotation(
         Line(points = {{0, 70}, {-2, 70}, {-2, 130}}, color = {95, 95, 95}));
+  connect(bodyMass.frame_a, damper.frame_b) annotation(
+        Line(points = {{0, 70}, {2, 70}, {2, 44}, {-26, 44}, {-26, 32}}));
+  connect(damper.frame_a, wheel.zT) annotation(
+        Line(points = {{-26, -4}, {-26, -22}, {6, -22}, {6, -32}}));
+  connect(spring.frame_a, wheel.zT) annotation(
+        Line(points = {{35, -2}, {35, -22}, {6, -22}, {6, -32}}));
+  connect(spring.frame_b, bodyMass.frame_a) annotation(
+        Line(points = {{35, 32}, {35, 44}, {0, 44}, {0, 70}}));
     end QuarterCarModel;
     
     model Wheel
@@ -66,7 +84,7 @@ package SuspensionSystem
         Placement(visible = true, transformation(origin = {0, -98}, extent = {{-16, -16}, {16, 16}}, rotation = -90), iconTransformation(origin = {0, -94}, extent = {{-16, -16}, {16, 16}}, rotation = -90)));
   Modelica.Mechanics.MultiBody.Parts.BodyShape WheelMass(animateSphere = false, height = 0.3, length = wr * 0.4, lengthDirection = {0, 0, 1},m = mT, r = {0, wr * 0.65, 0}, r_0(start = {0, wr, 0}), r_CM = {0, wr * 0.65, 0}, r_shape = {0, wr * 0.65, 0}, width = wr * 2) annotation(
         Placement(visible = true, transformation(origin = {0, 24}, extent = {{-26, -26}, {26, 26}}, rotation = 90)));
-  Modelica.Mechanics.MultiBody.Joints.Prismatic TyreElasticity(animation = true, n = {0, 1, 0}, s(start = wr / 5), useAxisFlange = true)  annotation(
+  Modelica.Mechanics.MultiBody.Joints.Prismatic TyreElasticity(animation = true, boxColor = {50, 255, 50}, boxHeight = 0.3, n = {0, 1, 0}, s(start = wr / 5), useAxisFlange = true)  annotation(
         Placement(visible = true, transformation(origin = {1, -59}, extent = {{-21, -21}, {21, 21}}, rotation = 90)));
   Modelica.Mechanics.Translational.Components.Spring TyreSpring(c = kT, s_rel(fixed = true, start = wr * 0.28), s_rel0 = wr * 0.35)  annotation(
         Placement(visible = true, transformation(origin = {-52, -56}, extent = {{-10, -10}, {10, 10}}, rotation = 90)));
