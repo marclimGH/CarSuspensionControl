@@ -4,43 +4,51 @@ package SuspensionSystem
   package Components
     class RoadProfile
       parameter Real roadRoughness = 3 "Road height StdDeviation in cm";
-      Modelica.Mechanics.MultiBody.Joints.Prismatic Road(boxColor = {100, 100, 100}, boxHeight = 1, boxWidth = 1, n = {0, 1, 0}, s(start = 0.5), useAxisFlange = true) annotation(
+      Modelica.Mechanics.MultiBody.Joints.Prismatic Road(animation = true,boxColor = {140, 140, 140}, boxHeight = 1, boxWidth = 0.3, n = {0, 1, 0}, s(start = 0.5), useAxisFlange = true) annotation(
         Placement(visible = true, transformation(origin = {38, -16}, extent = {{-30, -30}, {30, 30}}, rotation = 90)));
       Modelica.Mechanics.Translational.Sources.Position position(a(fixed = false), exact = false, v(fixed = false)) annotation(
-        Placement(visible = true, transformation(origin = {-22, 8}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+        Placement(visible = true, transformation(origin = {0, 8}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
       Modelica.Mechanics.MultiBody.Interfaces.Frame_b zR annotation(
         Placement(visible = true, transformation(origin = {38, 96}, extent = {{-16, -16}, {16, 16}}, rotation = 90), iconTransformation(origin = {-2, 96}, extent = {{-16, -16}, {16, 16}}, rotation = -90)));
-      Modelica.Blocks.Continuous.Filter LPF(f_cut = 1, gain = roadRoughness, order = 1) annotation(
-        Placement(visible = true, transformation(origin = {-90, 10}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+      Modelica.Blocks.Continuous.Filter LPF(f_cut = 1, filterType = Modelica.Blocks.Types.FilterType.LowPass, gain = roadRoughness, order = 2) annotation(
+        Placement(visible = true, transformation(origin = {-90, 20}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
       Modelica.Blocks.Noise.NormalNoise normalNoise(enableNoise = true, mu = 0, samplePeriod = 0.01, sigma = 0.05, startTime = 0.1, useAutomaticLocalSeed = false, useGlobalSeed = false) annotation(
-        Placement(visible = true, transformation(origin = {-120, 10}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+        Placement(visible = true, transformation(origin = {-120, 20}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
       Modelica.Mechanics.MultiBody.Interfaces.Frame_a world_a annotation(
         Placement(visible = true, transformation(origin = {-98, -72}, extent = {{-16, -16}, {16, 16}}, rotation = 180), iconTransformation(origin = {-100, -66}, extent = {{-16, -16}, {16, 16}}, rotation = 0)));
-      Modelica.Mechanics.MultiBody.Parts.FixedTranslation y(r = {0, -roadRoughness / 100 * 3, 0}) annotation(
+      Modelica.Mechanics.MultiBody.Parts.FixedTranslation y(r = {0, -0.5, 0}) annotation(
         Placement(visible = true, transformation(origin = {38, -76}, extent = {{-10, -10}, {10, 10}}, rotation = 90)));
-      Modelica.Blocks.Math.Add add annotation(
-        Placement(visible = true, transformation(origin = {-54, 6}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-      Modelica.Blocks.Sources.RealExpression realExpression(y = roadRoughness / 100 * 3) annotation(
-        Placement(visible = true, transformation(origin = {-88, -24}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  Modelica.Blocks.Interfaces.RealInput RoadRoughness annotation(
+        Placement(visible = true, transformation(origin = {-108, -16}, extent = {{-14, -14}, {14, 14}}, rotation = 0), iconTransformation(origin = {-100, 0}, extent = {{-20, -20}, {20, 20}}, rotation = 0)));
+  Modelica.Blocks.Math.Product product annotation(
+        Placement(visible = true, transformation(origin = {-58, 14}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  Modelica.Blocks.Math.Add add annotation(
+        Placement(visible = true, transformation(origin = {-28, 8}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  Modelica.Blocks.Sources.RealExpression offset(y = 0.5)  annotation(
+        Placement(visible = true, transformation(origin = {-64, -28}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
     equation
-      connect(position.support, Road.support) annotation(
-        Line(points = {{-22, -2}, {-22, -28}, {20, -28}}, color = {0, 127, 0}));
-      connect(position.flange, Road.axis) annotation(
-        Line(points = {{-12, 8}, {20, 8}}, color = {0, 127, 0}));
+  connect(position.support, Road.support) annotation(
+        Line(points = {{0, -2}, {0, -28}, {20, -28}}, color = {0, 127, 0}));
+  connect(position.flange, Road.axis) annotation(
+        Line(points = {{10, 8}, {20, 8}}, color = {0, 127, 0}));
       connect(zR, Road.frame_b) annotation(
         Line(points = {{38, 96}, {38, 14}}));
-      connect(normalNoise.y, LPF.u) annotation(
-        Line(points = {{-109, 10}, {-102, 10}}, color = {0, 0, 127}));
+  connect(normalNoise.y, LPF.u) annotation(
+        Line(points = {{-109, 20}, {-102, 20}}, color = {0, 0, 127}));
       connect(world_a, y.frame_a) annotation(
         Line(points = {{-98, -72}, {-16, -72}, {-16, -96}, {38, -96}, {38, -86}}));
       connect(y.frame_b, Road.frame_a) annotation(
         Line(points = {{38, -66}, {38, -46}}, color = {95, 95, 95}));
-      connect(add.y, position.s_ref) annotation(
-        Line(points = {{-43, 6}, {-38, 6}, {-38, 8}, {-34, 8}}, color = {0, 0, 127}));
-      connect(LPF.y, add.u1) annotation(
-        Line(points = {{-78, 10}, {-72, 10}, {-72, 12}, {-66, 12}}, color = {0, 0, 127}));
-      connect(realExpression.y, add.u2) annotation(
-        Line(points = {{-76, -24}, {-72, -24}, {-72, 0}, {-66, 0}}, color = {0, 0, 127}));
+  connect(LPF.y, product.u1) annotation(
+        Line(points = {{-79, 20}, {-71, 20}}, color = {0, 0, 127}));
+  connect(RoadRoughness, product.u2) annotation(
+        Line(points = {{-108, -16}, {-76, -16}, {-76, 8}, {-70, 8}}, color = {0, 0, 127}));
+  connect(add.y, position.s_ref) annotation(
+        Line(points = {{-16, 8}, {-12, 8}}, color = {0, 0, 127}));
+  connect(product.y, add.u1) annotation(
+        Line(points = {{-46, 14}, {-40, 14}}, color = {0, 0, 127}));
+  connect(offset.y, add.u2) annotation(
+        Line(points = {{-52, -28}, {-46, -28}, {-46, 2}, {-40, 2}}, color = {0, 0, 127}));
     end RoadProfile;
 
     model Wheel
@@ -50,7 +58,7 @@ package SuspensionSystem
       parameter Modelica.Units.SI.Length wr = 0.35 "wheel radius";
       Modelica.Mechanics.MultiBody.Interfaces.Frame_a zR annotation(
         Placement(visible = true, transformation(origin = {0, -98}, extent = {{-16, -16}, {16, 16}}, rotation = -90), iconTransformation(origin = {0, -94}, extent = {{-16, -16}, {16, 16}}, rotation = -90)));
-      Modelica.Mechanics.MultiBody.Parts.BodyShape WheelMass(animateSphere = false, height = 0.3, length = wr * 0.4, lengthDirection = {0, 0, 1}, m = mT, r = {0, wr * 0.65, 0}, r_0(start = {0, wr, 0}), r_CM = {0, wr * 0.65, 0}, r_shape = {0, wr * 0.65, 0}, width = wr * 2) annotation(
+      Modelica.Mechanics.MultiBody.Parts.BodyShape WheelMass(animateSphere = false, color = {70, 70, 70}, height = 0.3, length = wr * 0.4, lengthDirection = {0, 0, 1}, m = mT, r = {0, wr * 0.65, 0}, r_0(start = {0, wr, 0}), r_CM = {0, wr * 0.65, 0}, r_shape = {0, wr * 0.65, 0}, width = wr * 2) annotation(
         Placement(visible = true, transformation(origin = {0, 24}, extent = {{-26, -26}, {26, 26}}, rotation = 90)));
       Modelica.Mechanics.MultiBody.Joints.Prismatic TyreElasticity(animation = true, boxColor = {50, 255, 50}, boxHeight = 0.3, n = {0, 1, 0}, s(start = wr / 5), useAxisFlange = true) annotation(
         Placement(visible = true, transformation(origin = {1, -59}, extent = {{-21, -21}, {21, 21}}, rotation = 90)));
@@ -87,7 +95,7 @@ package SuspensionSystem
         parameter Modelica.Units.SI.TranslationalSpringConstant kT = 250000;
         Modelica.Mechanics.MultiBody.Interfaces.Frame_a zR annotation(
           Placement(visible = true, transformation(origin = {0, -100}, extent = {{-16, -16}, {16, 16}}, rotation = -90), iconTransformation(origin = {-2, -100}, extent = {{-16, -16}, {16, 16}}, rotation = -90)));
-        Modelica.Mechanics.MultiBody.Parts.PointMass bodyMass(m = mB, r_0(start = {0, 1.2, 0}), stateSelect = StateSelect.default) annotation(
+        Modelica.Mechanics.MultiBody.Parts.PointMass bodyMass(m = mB, r_0(start = {0, 1.2, 0}), sphereDiameter = 0.3, stateSelect = StateSelect.default) annotation(
           Placement(visible = true, transformation(origin = {0, 70}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
         Wheel wheel annotation(
           Placement(visible = true, transformation(origin = {1.77636e-15, -50}, extent = {{-18, -18}, {18, 18}}, rotation = 0)));
@@ -244,14 +252,16 @@ package SuspensionSystem
         Placement(visible = true, transformation(origin = {0, -8}, extent = {{-26, -26}, {26, 26}}, rotation = 0)));
       inner Modelica.Mechanics.MultiBody.World world annotation(
         Placement(visible = true, transformation(origin = {-87, -89}, extent = {{-9, -9}, {9, 9}}, rotation = 0)));
-      Modelica.Mechanics.MultiBody.Parts.FixedTranslation z(r = {0, 0, -1}) annotation(
+      Modelica.Mechanics.MultiBody.Parts.FixedTranslation z(animation = false, r = {0, 0, -1}) annotation(
         Placement(visible = true, transformation(origin = {44, -94}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-      Modelica.Mechanics.MultiBody.Parts.FixedTranslation fixedTranslation(r = {0, 2, 0}) annotation(
+      Modelica.Mechanics.MultiBody.Parts.FixedTranslation fixedTranslation(animation = false, r = {0, 2, 0}) annotation(
         Placement(visible = true, transformation(origin = {82, 56}, extent = {{-10, -10}, {10, 10}}, rotation = 90)));
-      Modelica.Mechanics.MultiBody.Parts.FixedTranslation fixedTranslation1(r = {0, 0, 0.8}) annotation(
+      Modelica.Mechanics.MultiBody.Parts.FixedTranslation fixedTranslation1(animation = false, r = {0, 0, 0.8}) annotation(
         Placement(visible = true, transformation(origin = {20, 90}, extent = {{-10, -10}, {10, 10}}, rotation = 180)));
-      Modelica.Mechanics.MultiBody.Joints.Prismatic prismatic(n = {0, -0.8, 0}, s(start = 0.8)) annotation(
+      Modelica.Mechanics.MultiBody.Joints.Prismatic prismatic(animation = false,n = {0, -0.8, 0}, s(start = 0.8)) annotation(
         Placement(visible = true, transformation(origin = {-2, 60}, extent = {{-10, -10}, {10, 10}}, rotation = -90)));
+  Modelica.Blocks.Sources.Ramp ramp(duration = 20, height = 1.5, offset = 0.5)  annotation(
+        Placement(visible = true, transformation(origin = {-60, -62}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
     equation
       accSquared = quarterCarModel.bodyMass.a_0[2]^2;
       connect(quarterCarModel.zR, roadProfile.zR) annotation(
@@ -268,6 +278,8 @@ package SuspensionSystem
         Line(points = {{-2, 50}, {-2, 16}}));
       connect(prismatic.frame_a, fixedTranslation1.frame_b) annotation(
         Line(points = {{-2, 70}, {-2, 90}, {10, 90}}));
+  connect(ramp.y, roadProfile.RoadRoughness) annotation(
+        Line(points = {{-48, -62}, {-16, -62}}, color = {0, 0, 127}));
       annotation(
         Diagram(graphics = {Bitmap(extent = {{-10, -68}, {-10, -68}})}));
     end BaseSuspension;
@@ -278,49 +290,52 @@ package SuspensionSystem
       extends Components.BaseSuspension(redeclare Components.QuarterCar.QuarterCarModelPassive quarterCarModel(d = 1300, unstretchedLen = 1), roadProfile.roadRoughness = 5);
     equation
 
-    end PassiveSuspension;
+    annotation(
+        experiment(StartTime = 0, StopTime = 30, Tolerance = 1e-6, Interval = 0.002));end PassiveSuspension;
 
     model ActiveDampingSuspensionADD
     //  Real accSquared ;
-    //  Modelica.Blocks.Continuous.Filter bandPassFilter(f_cut = 80, f_min = 0.5, order = 4);
+      //  Modelica.Blocks.Continuous.Filter bandPassFilter(f_cut = 80, f_min = 0.5, order = 4);
       extends Components.BaseSuspension(redeclare Components.QuarterCar.QuarteCarModelActiveDamping quarterCarModel(dmax = 2500, dmin = 500, unstretchedLen = 1, kB = 10000), roadProfile.roadRoughness = 5);
       SuspensionSystem.Components.Controller.ControllerADD controller(steepness = 10)  annotation(
         Placement(visible = true, transformation(origin = {-64, -4}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
   ////Modelica.Blocks.Continuous.Filter filter(f_cut = 80, f_min = 0.5, order = 4)  annotation(
     //    Placement(visible = true, transformation(origin = {-62, 68}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
     equation
-    //  accSquared = quarterCarModel.bodyMass.a_0[2]^2;
-    //  bandPassFilter.u = accSquared;
-    //  bandPassFilter.y = vertComfortCost;
+//  accSquared = quarterCarModel.bodyMass.a_0[2]^2;
+//  bandPassFilter.u = accSquared;
+//  bandPassFilter.y = vertComfortCost;
       connect(quarterCarModel.z_vel, controller.z_vel_in) annotation(
         Line(points = {{26, 10}, {32, 10}, {32, 28}, {-94, 28}, {-94, 2}, {-74, 2}}, color = {0, 0, 127}));
       connect(quarterCarModel.zW_vel, controller.zW_vel_in) annotation(
         Line(points = {{28, -18}, {40, -18}, {40, 34}, {-98, 34}, {-98, -5}, {-74, -5}}, color = {0, 0, 127}));
       connect(controller.outDampingControl, quarterCarModel.inDampingControl) annotation(
         Line(points = {{-54, -3}, {-44, -3}, {-44, -2}, {-26, -2}}, color = {0, 0, 127}));
-    end ActiveDampingSuspensionADD;
+    annotation(
+        experiment(StartTime = 0, StopTime = 1, Tolerance = 1e-6, Interval = 0.002));end ActiveDampingSuspensionADD;
     
     model ActiveDampingSuspensionSHADD
       parameter Real kSH = 1;
       parameter Real kADD = 1;
     //  Real accSquared ;
-    //  Modelica.Blocks.Continuous.Filter bandPassFilter(f_cut = 80, f_min = 0.5, order = 4);
+      //  Modelica.Blocks.Continuous.Filter bandPassFilter(f_cut = 80, f_min = 0.5, order = 4);
       extends Components.BaseSuspension(redeclare Components.QuarterCar.QuarteCarModelActiveDamping quarterCarModel(dmax = 2500, dmin = 500, unstretchedLen = 1, kB = 10000), roadProfile.roadRoughness = 5);
       SuspensionSystem.Components.Controller.ControllerSHADD controller(steepness = 10, kSH = kSH, kADD = kADD)  annotation(
         Placement(visible = true, transformation(origin = {-64, -4}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
     ////Modelica.Blocks.Continuous.Filter filter(f_cut = 80, f_min = 0.5, order = 4)  annotation(
     //    Placement(visible = true, transformation(origin = {-62, 68}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
     equation
-    //  accSquared = quarterCarModel.bodyMass.a_0[2]^2;
-    //  bandPassFilter.u = accSquared;
-    //  bandPassFilter.y = vertComfortCost;
+//  accSquared = quarterCarModel.bodyMass.a_0[2]^2;
+//  bandPassFilter.u = accSquared;
+//  bandPassFilter.y = vertComfortCost;
       connect(quarterCarModel.z_vel, controller.z_vel_in) annotation(
         Line(points = {{26, 10}, {32, 10}, {32, 28}, {-94, 28}, {-94, 2}, {-74, 2}}, color = {0, 0, 127}));
       connect(quarterCarModel.zW_vel, controller.zW_vel_in) annotation(
         Line(points = {{28, -18}, {40, -18}, {40, 34}, {-98, 34}, {-98, -5}, {-74, -5}}, color = {0, 0, 127}));
       connect(controller.outDampingControl, quarterCarModel.inDampingControl) annotation(
         Line(points = {{-54, -3}, {-44, -3}, {-44, -2}, {-26, -2}}, color = {0, 0, 127}));
-    end ActiveDampingSuspensionSHADD;
+    annotation(
+        experiment(StartTime = 0, StopTime = 30, Tolerance = 1e-6, Interval = 0.002));end ActiveDampingSuspensionSHADD;
   end Examples;
   annotation(
     uses(Modelica(version = "4.0.0")));
