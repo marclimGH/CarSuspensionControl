@@ -2,8 +2,9 @@ package SuspensionSystem
   import SI = Modelica.Units.SI;
 
   package Components
-    class RoadProfile
+    model RoadProfile
       parameter Real roadRoughness = 3 "Road height StdDeviation in cm";
+      
       Modelica.Mechanics.MultiBody.Joints.Prismatic Road(animation = true,boxColor = {140, 140, 140}, boxHeight = 1, boxWidth = 0.3, n = {0, 1, 0}, s(start = 0.5), useAxisFlange = true) annotation(
         Placement(visible = true, transformation(origin = {38, -16}, extent = {{-30, -30}, {30, 30}}, rotation = 90)));
       Modelica.Mechanics.Translational.Sources.Position position(a(fixed = false), exact = false, v(fixed = false)) annotation(
