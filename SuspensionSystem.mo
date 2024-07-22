@@ -61,7 +61,7 @@ package SuspensionSystem
         Placement(visible = true, transformation(origin = {0, -98}, extent = {{-16, -16}, {16, 16}}, rotation = -90), iconTransformation(origin = {0, -94}, extent = {{-16, -16}, {16, 16}}, rotation = -90)));
       Modelica.Mechanics.MultiBody.Parts.BodyShape WheelMass(animateSphere = false, color = {70, 70, 70}, height = 0.3, length = wr * 0.4, lengthDirection = {0, 0, 1}, m = mT, r = {0, wr * 0.65, 0}, r_0(start = {0, wr, 0}), r_CM = {0, wr * 0.65, 0}, r_shape = {0, wr * 0.65, 0}, width = wr * 2) annotation(
         Placement(visible = true, transformation(origin = {0, 24}, extent = {{-26, -26}, {26, 26}}, rotation = 90)));
-      Modelica.Mechanics.MultiBody.Joints.Prismatic TyreElasticity(animation = true, boxColor = {50, 255, 50}, boxHeight = 0.3, n = {0, 1, 0}, s(start = wr / 5), useAxisFlange = true) annotation(
+      Modelica.Mechanics.MultiBody.Joints.Prismatic TyreElasticity(animation = false, boxColor = {50, 255, 50}, boxHeight = 0.3, n = {0, 1, 0}, s(start = wr / 5), useAxisFlange = true) annotation(
         Placement(visible = true, transformation(origin = {1, -59}, extent = {{-21, -21}, {21, 21}}, rotation = 90)));
       Modelica.Mechanics.Translational.Components.Spring TyreSpring(c = kT, s_rel(fixed = true, start = wr * 0.28), s_rel0 = wr * 0.35) annotation(
         Placement(visible = true, transformation(origin = {-52, -56}, extent = {{-10, -10}, {10, 10}}, rotation = 90)));
@@ -232,21 +232,30 @@ package SuspensionSystem
       model ControllerSHADD "Acceleration Driven Control"
         extends ControllerBase;
         Modelica.Units.SI.Acceleration z_acc;
-        Real ADD,SH,switchLogic;
-        parameter Real steepness = 10 "Steepness of the transition";
-        parameter Real kSH = 1;
-        parameter Real kADD = 1;
+        Real freqSelector;
+        Real ADD;
+        Real SH;
+        Real cSwitch,cControl;
+        parameter Real alpha = 1.8 "Hz";
+        parameter Real tau = 10e-3/3 "time constant damping response";
+        Real x;
       equation
         z_acc = der(z_vel_in);
+        freqSelector = z_acc^2 - alpha^2 * zW_vel_in^2;
         ADD = z_acc * (z_vel_in - zW_vel_in);
-        SH =  z_vel_in * (z_vel_in - zW_vel_in);
-        switchLogic = kSH*SH + kADD*ADD ;
-        outDampingControl = 0.5 * (1 + tanh(steepness * switchLogic));
+        SH = z_vel_in * (z_vel_in - zW_vel_in);
+      
+        cSwitch = 0.5* (1 + tanh(freqSelector));
+        cControl = ADD*cSwitch + SH*(1-cSwitch);
+        
+        der(x) = (cControl - x) / tau;
+        outDampingControl = x;
+        
       end ControllerSHADD;
     end Controller;
 
     partial model BaseSuspension
-      Real accSquared;
+      Real accSquared,ComfortCost;
       inner SuspensionSystem.Components.RoadProfile roadProfile annotation(
         Placement(visible = true, transformation(origin = {-1, -63}, extent = {{-15, -15}, {15, 15}}, rotation = 0)));
       inner replaceable SuspensionSystem.Components.QuarterCar.QuarterCarModelBase quarterCarModel annotation(
@@ -265,6 +274,7 @@ package SuspensionSystem
         Placement(visible = true, transformation(origin = {-60, -62}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
     equation
       accSquared = quarterCarModel.bodyMass.a_0[2]^2;
+      der(ComfortCost) = accSquared;
       connect(quarterCarModel.zR, roadProfile.zR) annotation(
         Line(points = {{-1, -34}, {-1, -49}}, color = {95, 95, 95}));
       connect(world.frame_b, roadProfile.world_a) annotation(
@@ -292,20 +302,15 @@ package SuspensionSystem
     equation
 
     annotation(
-        experiment(StartTime = 0, StopTime = 30, Tolerance = 1e-6, Interval = 0.002));end PassiveSuspension;
+        experiment(StartTime = 0, StopTime = 30, Tolerance = 1e-7, Interval = 0.001));end PassiveSuspension;
 
     model ActiveDampingSuspensionADD
-    //  Real accSquared ;
-      //  Modelica.Blocks.Continuous.Filter bandPassFilter(f_cut = 80, f_min = 0.5, order = 4);
-      extends Components.BaseSuspension(redeclare Components.QuarterCar.QuarteCarModelActiveDamping quarterCarModel(dmax = 2500, dmin = 500, unstretchedLen = 1, kB = 10000), roadProfile.roadRoughness = 5);
-      SuspensionSystem.Components.Controller.ControllerADD controller(steepness = 10)  annotation(
+    
+      extends Components.BaseSuspension(redeclare Components.QuarterCar.QuarteCarModelActiveDamping quarterCarModel(dmax = 7000, dmin = 1000, unstretchedLen = 1), roadProfile.roadRoughness = 5);
+      SuspensionSystem.Components.Controller.ControllerADD controller  annotation(
         Placement(visible = true, transformation(origin = {-64, -4}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-  ////Modelica.Blocks.Continuous.Filter filter(f_cut = 80, f_min = 0.5, order = 4)  annotation(
-    //    Placement(visible = true, transformation(origin = {-62, 68}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+    
     equation
-//  accSquared = quarterCarModel.bodyMass.a_0[2]^2;
-//  bandPassFilter.u = accSquared;
-//  bandPassFilter.y = vertComfortCost;
       connect(quarterCarModel.z_vel, controller.z_vel_in) annotation(
         Line(points = {{26, 10}, {32, 10}, {32, 28}, {-94, 28}, {-94, 2}, {-74, 2}}, color = {0, 0, 127}));
       connect(quarterCarModel.zW_vel, controller.zW_vel_in) annotation(
@@ -313,22 +318,17 @@ package SuspensionSystem
       connect(controller.outDampingControl, quarterCarModel.inDampingControl) annotation(
         Line(points = {{-54, -3}, {-44, -3}, {-44, -2}, {-26, -2}}, color = {0, 0, 127}));
     annotation(
-        experiment(StartTime = 0, StopTime = 1, Tolerance = 1e-6, Interval = 0.002));end ActiveDampingSuspensionADD;
+        experiment(StartTime = 0, StopTime = 30, Tolerance = 1e-7, Interval = 0.001));end ActiveDampingSuspensionADD;
     
     model ActiveDampingSuspensionSHADD
-      parameter Real kSH = 1;
-      parameter Real kADD = 1;
-    //  Real accSquared ;
-      //  Modelica.Blocks.Continuous.Filter bandPassFilter(f_cut = 80, f_min = 0.5, order = 4);
-      extends Components.BaseSuspension(redeclare Components.QuarterCar.QuarteCarModelActiveDamping quarterCarModel(dmax = 2500, dmin = 500, unstretchedLen = 1, kB = 10000), roadProfile.roadRoughness = 5);
-      SuspensionSystem.Components.Controller.ControllerSHADD controller(steepness = 10, kSH = kSH, kADD = kADD)  annotation(
+      parameter Real alpha = 1 "(Hz) freq selector SH to ADD ";
+    
+      extends Components.BaseSuspension(redeclare Components.QuarterCar.QuarteCarModelActiveDamping quarterCarModel(dmax = 7000, dmin = 1000, unstretchedLen = 1), roadProfile.roadRoughness = 5);
+      SuspensionSystem.Components.Controller.ControllerSHADD controller(alpha = alpha) annotation(
         Placement(visible = true, transformation(origin = {-64, -4}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-    ////Modelica.Blocks.Continuous.Filter filter(f_cut = 80, f_min = 0.5, order = 4)  annotation(
-    //    Placement(visible = true, transformation(origin = {-62, 68}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+    
     equation
-//  accSquared = quarterCarModel.bodyMass.a_0[2]^2;
-//  bandPassFilter.u = accSquared;
-//  bandPassFilter.y = vertComfortCost;
+
       connect(quarterCarModel.z_vel, controller.z_vel_in) annotation(
         Line(points = {{26, 10}, {32, 10}, {32, 28}, {-94, 28}, {-94, 2}, {-74, 2}}, color = {0, 0, 127}));
       connect(quarterCarModel.zW_vel, controller.zW_vel_in) annotation(
@@ -336,7 +336,7 @@ package SuspensionSystem
       connect(controller.outDampingControl, quarterCarModel.inDampingControl) annotation(
         Line(points = {{-54, -3}, {-44, -3}, {-44, -2}, {-26, -2}}, color = {0, 0, 127}));
     annotation(
-        experiment(StartTime = 0, StopTime = 30, Tolerance = 1e-6, Interval = 0.002));end ActiveDampingSuspensionSHADD;
+        experiment(StartTime = 0, StopTime = 30, Tolerance = 1e-7, Interval = 0.001));end ActiveDampingSuspensionSHADD;
   end Examples;
   annotation(
     uses(Modelica(version = "4.0.0")));
