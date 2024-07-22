@@ -1,4 +1,4 @@
-## Car Suspension System Model in Modelica: Vehicle Dynamics Simulation
+## Vehicle Suspension Modeling with Modelica
 
 ### Overview
 The `SuspensionSystem` package provides an advanced simulation platform for vehicle suspension systems using Modelica. It is designed for automotive engineers and researchers focusing on dynamics analysis and system design. This package features detailed models of suspension components and road interactions, along with sophisticated control strategies for both passive and active damping systems. All examples within the package are visualized through 3D animations, enhancing the comprehension of dynamic interactions and mechanical responses.
