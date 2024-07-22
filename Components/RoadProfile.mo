@@ -1,3 +1,36 @@
+package SuspensionSystem
+  import SI = Modelica.Units.SI;
+
+  package Components
+    model RoadProfile
+      parameter Real roadRoughness = 3 "Road height StdDeviation in cm";
+      Modelica.Mechanics.MultiBody.Joints.Prismatic Road(animation = true, boxColor = {140, 140, 140}, boxHeight = 1, boxWidth = 0.3, n = {0, 1, 0}, s(start = 0.5), useAxisFlange = true);
+      Modelica.Mechanics.Translational.Sources.Position position(a(fixed = false), exact = false, v(fixed = false));
+      Modelica.Mechanics.MultiBody.Interfaces.Frame_b zR;
+      Modelica.Blocks.Continuous.Filter LPF(f_cut = 1, filterType = Modelica.Blocks.Types.FilterType.LowPass, gain = roadRoughness, order = 2);
+      Modelica.Blocks.Noise.NormalNoise normalNoise(enableNoise = true, mu = 0, samplePeriod = 0.01, sigma = 0.05, startTime = 0.1, useAutomaticLocalSeed = false, useGlobalSeed = false);
+      Modelica.Mechanics.MultiBody.Interfaces.Frame_a world_a;
+      Modelica.Mechanics.MultiBody.Parts.FixedTranslation y(r = {0, -0.5, 0});
+      Modelica.Blocks.Interfaces.RealInput RoadRoughness;
+      Modelica.Blocks.Math.Product product;
+      Modelica.Blocks.Math.Add add;
+      Modelica.Blocks.Sources.RealExpression offset(y = 0.5);
+    equation
+      connect(position.support, Road.support);
+      connect(position.flange, Road.axis);
+      connect(zR, Road.frame_b);
+      connect(normalNoise.y, LPF.u);
+      connect(world_a, y.frame_a);
+      connect(y.frame_b, Road.frame_a);
+      connect(LPF.y, product.u1);
+      connect(RoadRoughness, product.u2);
+      connect(add.y, position.s_ref);
+      connect(product.y, add.u1);
+      connect(offset.y, add.u2);
+    end RoadProfile;
+  end Components;
+end SuspensionSystem;
+
 package ModelicaServices "ModelicaServices (OpenModelica implementation) - Models and functions used in the Modelica Standard Library requiring a tool specific implementation"
   extends Modelica.Icons.Package;
 
@@ -46,26 +79,26 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         parameter SI.Frequency f_min = 0 "Band of band pass/stop filter is f_min (A=-3db*gain) .. f_cut (A=-3db*gain)";
         parameter Boolean normalized = true "= true, if amplitude at f_cut = -3db, otherwise unmodified filter";
         parameter Modelica.Blocks.Types.Init init = Modelica.Blocks.Types.Init.SteadyState "Type of initialization (no init/steady state/initial state/initial output)" annotation(Evaluate = true);
-        final parameter Integer nx = if filterType == Modelica.Blocks.Types.FilterType.LowPass or filterType == Modelica.Blocks.Types.FilterType.HighPass then order else 2 * order;
-        parameter Real[nx] x_start = zeros(nx) "Initial or guess values of states";
+        final parameter Integer nx = if filterType == Modelica.Blocks.Types.FilterType.LowPass or filterType == Modelica.Blocks.Types.FilterType.HighPass then order else 2*order;
+        parameter Real x_start[nx] = zeros(nx) "Initial or guess values of states";
         parameter Real y_start = 0 "Initial value of output";
         parameter Real u_nominal = 1.0 "Nominal value of input (used for scaling the states)";
-        Modelica.Blocks.Interfaces.RealOutput[nx] x "Filter states";
+        Modelica.Blocks.Interfaces.RealOutput x[nx] "Filter states";
       protected
         parameter Integer ncr = if analogFilter == Modelica.Blocks.Types.AnalogFilter.CriticalDamping then order else mod(order, 2);
-        parameter Integer nc0 = if analogFilter == Modelica.Blocks.Types.AnalogFilter.CriticalDamping then 0 else integer(order / 2);
-        parameter Integer na = if filterType == Modelica.Blocks.Types.FilterType.BandPass or filterType == Modelica.Blocks.Types.FilterType.BandStop then order else if analogFilter == Modelica.Blocks.Types.AnalogFilter.CriticalDamping then 0 else integer(order / 2);
+        parameter Integer nc0 = if analogFilter == Modelica.Blocks.Types.AnalogFilter.CriticalDamping then 0 else integer(order/2);
+        parameter Integer na = if filterType == Modelica.Blocks.Types.FilterType.BandPass or filterType == Modelica.Blocks.Types.FilterType.BandStop then order else if analogFilter == Modelica.Blocks.Types.AnalogFilter.CriticalDamping then 0 else integer(order/2);
         parameter Integer nr = if filterType == Modelica.Blocks.Types.FilterType.BandPass or filterType == Modelica.Blocks.Types.FilterType.BandStop then 0 else if analogFilter == Modelica.Blocks.Types.AnalogFilter.CriticalDamping then order else mod(order, 2);
-        parameter Real[ncr] cr(each fixed = false);
-        parameter Real[nc0] c0(each fixed = false);
-        parameter Real[nc0] c1(each fixed = false);
-        parameter Real[nr] r(each fixed = false);
-        parameter Real[na] a(each fixed = false);
-        parameter Real[na] b(each fixed = false);
-        parameter Real[na] ku(each fixed = false);
-        parameter Real[if filterType == Modelica.Blocks.Types.FilterType.LowPass then 0 else na] k1(each fixed = false);
-        parameter Real[if filterType == Modelica.Blocks.Types.FilterType.LowPass then 0 else na] k2(each fixed = false);
-        Real[na + nr + 1] uu;
+        parameter Real cr[ncr](each fixed = false);
+        parameter Real c0[nc0](each fixed = false);
+        parameter Real c1[nc0](each fixed = false);
+        parameter Real r[nr](each fixed = false);
+        parameter Real a[na](each fixed = false);
+        parameter Real b[na](each fixed = false);
+        parameter Real ku[na](each fixed = false);
+        parameter Real k1[if filterType == Modelica.Blocks.Types.FilterType.LowPass then 0 else na](each fixed = false);
+        parameter Real k2[if filterType == Modelica.Blocks.Types.FilterType.LowPass then 0 else na](each fixed = false);
+        Real uu[na + nr + 1];
       initial equation
         if analogFilter == Modelica.Blocks.Types.AnalogFilter.CriticalDamping then
           cr = Internal.Filter.base.CriticalDamping(order, normalized);
@@ -100,41 +133,41 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         assert(filterType == Modelica.Blocks.Types.FilterType.LowPass or filterType == Modelica.Blocks.Types.FilterType.HighPass or f_min > 0, "f_min > 0 required for band pass and band stop filter");
         assert(A_ripple > 0, "A_ripple > 0 required");
         assert(f_cut > 0, "f_cut > 0 required");
-        uu[1] = u / u_nominal;
+        uu[1] = u/u_nominal;
         for i in 1:nr loop
-          der(x[i]) = r[i] * (x[i] - uu[i]);
+          der(x[i]) = r[i]*(x[i] - uu[i]);
         end for;
         for i in 1:na loop
-          der(x[nr + 2 * i - 1]) = a[i] * x[nr + 2 * i - 1] - b[i] * x[nr + 2 * i] + ku[i] * uu[nr + i];
-          der(x[nr + 2 * i]) = b[i] * x[nr + 2 * i - 1] + a[i] * x[nr + 2 * i];
+          der(x[nr + 2*i - 1]) = a[i]*x[nr + 2*i - 1] - b[i]*x[nr + 2*i] + ku[i]*uu[nr + i];
+          der(x[nr + 2*i]) = b[i]*x[nr + 2*i - 1] + a[i]*x[nr + 2*i];
         end for;
         if filterType == Modelica.Blocks.Types.FilterType.LowPass then
           for i in 1:nr loop
             uu[i + 1] = x[i];
           end for;
           for i in 1:na loop
-            uu[nr + i + 1] = x[nr + 2 * i];
+            uu[nr + i + 1] = x[nr + 2*i];
           end for;
         elseif filterType == Modelica.Blocks.Types.FilterType.HighPass then
           for i in 1:nr loop
-            uu[i + 1] = (-x[i]) + uu[i];
+            uu[i + 1] = -x[i] + uu[i];
           end for;
           for i in 1:na loop
-            uu[nr + i + 1] = k1[i] * x[nr + 2 * i - 1] + k2[i] * x[nr + 2 * i] + uu[nr + i];
+            uu[nr + i + 1] = k1[i]*x[nr + 2*i - 1] + k2[i]*x[nr + 2*i] + uu[nr + i];
           end for;
         elseif filterType == Modelica.Blocks.Types.FilterType.BandPass then
           for i in 1:na loop
-            uu[nr + i + 1] = k1[i] * x[nr + 2 * i - 1] + k2[i] * x[nr + 2 * i];
+            uu[nr + i + 1] = k1[i]*x[nr + 2*i - 1] + k2[i]*x[nr + 2*i];
           end for;
         elseif filterType == Modelica.Blocks.Types.FilterType.BandStop then
           for i in 1:na loop
-            uu[nr + i + 1] = k1[i] * x[nr + 2 * i - 1] + k2[i] * x[nr + 2 * i] + uu[nr + i];
+            uu[nr + i + 1] = k1[i]*x[nr + 2*i - 1] + k2[i]*x[nr + 2*i] + uu[nr + i];
           end for;
         else
           assert(false, "filterType (= " + String(filterType) + ") is unknown");
           uu = zeros(na + nr + 1);
         end if;
-        y = gain * u_nominal * uu[nr + na + 1];
+        y = (gain*u_nominal)*uu[nr + na + 1];
       end Filter;
 
       package Internal "Internal utility functions and blocks that should not be directly utilized by the user"
@@ -150,17 +183,17 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
               extends Modelica.Icons.Function;
               input Integer order(min = 1) "Order of filter";
               input Boolean normalized = true "= true, if amplitude at f_cut = -3db, otherwise unmodified filter";
-              output Real[order] cr "Coefficients of real poles";
+              output Real cr[order] "Coefficients of real poles";
             protected
               Real alpha = 1.0 "Frequency correction factor";
               Real alpha2 "= alpha*alpha";
-              Real[order] den1 "[p] coefficients of denominator first order polynomials (a*p + 1)";
-              Real[0, 2] den2 "[p^2, p] coefficients of denominator second order polynomials (b*p^2 + a*p + 1)";
-              Real[0] c0 "Coefficients of s^0 term if conjugate complex pole";
-              Real[0] c1 "Coefficients of s^1 term if conjugate complex pole";
+              Real den1[order] "[p] coefficients of denominator first order polynomials (a*p + 1)";
+              Real den2[0, 2] "[p^2, p] coefficients of denominator second order polynomials (b*p^2 + a*p + 1)";
+              Real c0[0] "Coefficients of s^0 term if conjugate complex pole";
+              Real c1[0] "Coefficients of s^1 term if conjugate complex pole";
             algorithm
               if normalized then
-                alpha := sqrt(10 ^ (3 / 10 / order) - 1);
+                alpha := sqrt(10^(3/10/order) - 1);
               else
                 alpha := 1.0;
               end if;
@@ -174,24 +207,24 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
               extends Modelica.Icons.Function;
               input Integer order(min = 1) "Order of filter";
               input Boolean normalized = true "= true, if amplitude at f_cut = -3db, otherwise unmodified filter";
-              output Real[mod(order, 2)] cr "Coefficient of real pole";
-              output Real[integer(order / 2)] c0 "Coefficients of s^0 term if conjugate complex pole";
-              output Real[integer(order / 2)] c1 "Coefficients of s^1 term if conjugate complex pole";
+              output Real cr[mod(order, 2)] "Coefficient of real pole";
+              output Real c0[integer(order/2)] "Coefficients of s^0 term if conjugate complex pole";
+              output Real c1[integer(order/2)] "Coefficients of s^1 term if conjugate complex pole";
             protected
               Real alpha = 1.0 "Frequency correction factor";
               Real alpha2 "= alpha*alpha";
-              Real[size(cr, 1)] den1 "[p] coefficients of denominator first order polynomials (a*p + 1)";
-              Real[size(c0, 1), 2] den2 "[p^2, p] coefficients of denominator second order polynomials (b*p^2 + a*p + 1)";
+              Real den1[size(cr, 1)] "[p] coefficients of denominator first order polynomials (a*p + 1)";
+              Real den2[size(c0, 1), 2] "[p^2, p] coefficients of denominator second order polynomials (b*p^2 + a*p + 1)";
             algorithm
               (den1, den2, alpha) := Modelica.Blocks.Continuous.Internal.Filter.Utilities.BesselBaseCoefficients(order);
               if not normalized then
-                alpha2 := alpha * alpha;
+                alpha2 := alpha*alpha;
                 for i in 1:size(c0, 1) loop
-                  den2[i, 1] := den2[i, 1] * alpha2;
-                  den2[i, 2] := den2[i, 2] * alpha;
+                  den2[i, 1] := den2[i, 1]*alpha2;
+                  den2[i, 2] := den2[i, 2]*alpha;
                 end for;
                 if size(cr, 1) == 1 then
-                  den1[1] := den1[1] * alpha;
+                  den1[1] := den1[1]*alpha;
                 else
                 end if;
               else
@@ -204,18 +237,18 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
               extends Modelica.Icons.Function;
               input Integer order(min = 1) "Order of filter";
               input Boolean normalized = true "= true, if amplitude at f_cut = -3db, otherwise unmodified filter";
-              output Real[mod(order, 2)] cr "Coefficient of real pole";
-              output Real[integer(order / 2)] c0 "Coefficients of s^0 term if conjugate complex pole";
-              output Real[integer(order / 2)] c1 "Coefficients of s^1 term if conjugate complex pole";
+              output Real cr[mod(order, 2)] "Coefficient of real pole";
+              output Real c0[integer(order/2)] "Coefficients of s^0 term if conjugate complex pole";
+              output Real c1[integer(order/2)] "Coefficients of s^1 term if conjugate complex pole";
             protected
               Real alpha = 1.0 "Frequency correction factor";
               Real alpha2 "= alpha*alpha";
-              Real[size(cr, 1)] den1 "[p] coefficients of denominator first order polynomials (a*p + 1)";
-              Real[size(c0, 1), 2] den2 "[p^2, p] coefficients of denominator second order polynomials (b*p^2 + a*p + 1)";
+              Real den1[size(cr, 1)] "[p] coefficients of denominator first order polynomials (a*p + 1)";
+              Real den2[size(c0, 1), 2] "[p^2, p] coefficients of denominator second order polynomials (b*p^2 + a*p + 1)";
             algorithm
               for i in 1:size(c0, 1) loop
                 den2[i, 1] := 1.0;
-                den2[i, 2] := -2 * Modelica.Math.cos(pi * (0.5 + (i - 0.5) / order));
+                den2[i, 2] := -2*Modelica.Math.cos(pi*(0.5 + (i - 0.5)/order));
               end for;
               if size(cr, 1) == 1 then
                 den1[1] := 1.0;
@@ -231,39 +264,39 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
               input Integer order(min = 1) "Order of filter";
               input Real A_ripple = 0.5 "Pass band ripple in [dB]";
               input Boolean normalized = true "= true, if amplitude at f_cut = -3db, otherwise unmodified filter";
-              output Real[mod(order, 2)] cr "Coefficient of real pole";
-              output Real[integer(order / 2)] c0 "Coefficients of s^0 term if conjugate complex pole";
-              output Real[integer(order / 2)] c1 "Coefficients of s^1 term if conjugate complex pole";
+              output Real cr[mod(order, 2)] "Coefficient of real pole";
+              output Real c0[integer(order/2)] "Coefficients of s^0 term if conjugate complex pole";
+              output Real c1[integer(order/2)] "Coefficients of s^1 term if conjugate complex pole";
             protected
               Real epsilon;
               Real fac;
               Real alpha = 1.0 "Frequency correction factor";
               Real alpha2 "= alpha*alpha";
-              Real[size(cr, 1)] den1 "[p] coefficients of denominator first order polynomials (a*p + 1)";
-              Real[size(c0, 1), 2] den2 "[p^2, p] coefficients of denominator second order polynomials (b*p^2 + a*p + 1)";
+              Real den1[size(cr, 1)] "[p] coefficients of denominator first order polynomials (a*p + 1)";
+              Real den2[size(c0, 1), 2] "[p^2, p] coefficients of denominator second order polynomials (b*p^2 + a*p + 1)";
             algorithm
-              epsilon := sqrt(10 ^ (A_ripple / 10) - 1);
-              fac := asinh(1 / epsilon) / order;
-              den1 := fill(1 / sinh(fac), size(den1, 1));
+              epsilon := sqrt(10^(A_ripple/10) - 1);
+              fac := asinh(1/epsilon)/order;
+              den1 := fill(1/sinh(fac), size(den1, 1));
               if size(cr, 1) == 0 then
                 for i in 1:size(c0, 1) loop
-                  den2[i, 1] := 1 / (cosh(fac) ^ 2 - cos((2 * i - 1) * pi / (2 * order)) ^ 2);
-                  den2[i, 2] := 2 * den2[i, 1] * sinh(fac) * cos((2 * i - 1) * pi / (2 * order));
+                  den2[i, 1] := 1/(cosh(fac)^2 - cos((2*i - 1)*pi/(2*order))^2);
+                  den2[i, 2] := 2*den2[i, 1]*sinh(fac)*cos((2*i - 1)*pi/(2*order));
                 end for;
               else
                 for i in 1:size(c0, 1) loop
-                  den2[i, 1] := 1 / (cosh(fac) ^ 2 - cos(i * pi / order) ^ 2);
-                  den2[i, 2] := 2 * den2[i, 1] * sinh(fac) * cos(i * pi / order);
+                  den2[i, 1] := 1/(cosh(fac)^2 - cos(i*pi/order)^2);
+                  den2[i, 2] := 2*den2[i, 1]*sinh(fac)*cos(i*pi/order);
                 end for;
               end if;
               if normalized then
                 alpha := Modelica.Blocks.Continuous.Internal.Filter.Utilities.normalizationFactor(den1, den2);
-                alpha2 := alpha * alpha;
+                alpha2 := alpha*alpha;
                 for i in 1:size(c0, 1) loop
-                  den2[i, 1] := den2[i, 1] * alpha2;
-                  den2[i, 2] := den2[i, 2] * alpha;
+                  den2[i, 1] := den2[i, 1]*alpha2;
+                  den2[i, 2] := den2[i, 2]*alpha;
                 end for;
-                den1 := den1 * alpha;
+                den1 := den1*alpha;
               else
               end if;
               (cr, c0, c1) := Modelica.Blocks.Continuous.Internal.Filter.Utilities.toHighestPowerOne(den1, den2);
@@ -276,101 +309,101 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             function lowPass "Return low pass filter coefficients at given cut-off frequency"
               import Modelica.Constants.pi;
               extends Modelica.Icons.Function;
-              input Real[:] cr_in "Coefficients of real poles";
-              input Real[:] c0_in "Coefficients of s^0 term if conjugate complex pole";
-              input Real[size(c0_in, 1)] c1_in "Coefficients of s^1 term if conjugate complex pole";
+              input Real cr_in[:] "Coefficients of real poles";
+              input Real c0_in[:] "Coefficients of s^0 term if conjugate complex pole";
+              input Real c1_in[size(c0_in, 1)] "Coefficients of s^1 term if conjugate complex pole";
               input SI.Frequency f_cut "Cut-off frequency";
-              output Real[size(cr_in, 1)] cr "Coefficient of real pole";
-              output Real[size(c0_in, 1)] c0 "Coefficients of s^0 term if conjugate complex pole";
-              output Real[size(c0_in, 1)] c1 "Coefficients of s^1 term if conjugate complex pole";
+              output Real cr[size(cr_in, 1)] "Coefficient of real pole";
+              output Real c0[size(c0_in, 1)] "Coefficients of s^0 term if conjugate complex pole";
+              output Real c1[size(c0_in, 1)] "Coefficients of s^1 term if conjugate complex pole";
             protected
-              SI.AngularVelocity w_cut = 2 * pi * f_cut "Cut-off angular frequency";
-              Real w_cut2 = w_cut * w_cut;
+              SI.AngularVelocity w_cut = 2*pi*f_cut "Cut-off angular frequency";
+              Real w_cut2 = w_cut*w_cut;
             algorithm
               assert(f_cut > 0, "Cut-off frequency f_cut must be positive");
-              cr := w_cut * cr_in;
-              c1 := w_cut * c1_in;
-              c0 := w_cut2 * c0_in;
+              cr := w_cut*cr_in;
+              c1 := w_cut*c1_in;
+              c0 := w_cut2*c0_in;
             end lowPass;
 
             function highPass "Return high pass filter coefficients at given cut-off frequency"
               import Modelica.Constants.pi;
               extends Modelica.Icons.Function;
-              input Real[:] cr_in "Coefficients of real poles";
-              input Real[:] c0_in "Coefficients of s^0 term if conjugate complex pole";
-              input Real[size(c0_in, 1)] c1_in "Coefficients of s^1 term if conjugate complex pole";
+              input Real cr_in[:] "Coefficients of real poles";
+              input Real c0_in[:] "Coefficients of s^0 term if conjugate complex pole";
+              input Real c1_in[size(c0_in, 1)] "Coefficients of s^1 term if conjugate complex pole";
               input SI.Frequency f_cut "Cut-off frequency";
-              output Real[size(cr_in, 1)] cr "Coefficient of real pole";
-              output Real[size(c0_in, 1)] c0 "Coefficients of s^0 term if conjugate complex pole";
-              output Real[size(c0_in, 1)] c1 "Coefficients of s^1 term if conjugate complex pole";
+              output Real cr[size(cr_in, 1)] "Coefficient of real pole";
+              output Real c0[size(c0_in, 1)] "Coefficients of s^0 term if conjugate complex pole";
+              output Real c1[size(c0_in, 1)] "Coefficients of s^1 term if conjugate complex pole";
             protected
-              SI.AngularVelocity w_cut = 2 * pi * f_cut "Cut-off angular frequency";
-              Real w_cut2 = w_cut * w_cut;
+              SI.AngularVelocity w_cut = 2*pi*f_cut "Cut-off angular frequency";
+              Real w_cut2 = w_cut*w_cut;
             algorithm
               assert(f_cut > 0, "Cut-off frequency f_cut must be positive");
               for i in 1:size(cr_in, 1) loop
-                cr[i] := w_cut / cr_in[i];
+                cr[i] := w_cut/cr_in[i];
               end for;
               for i in 1:size(c0_in, 1) loop
-                c0[i] := w_cut2 / c0_in[i];
-                c1[i] := w_cut * c1_in[i] / c0_in[i];
+                c0[i] := w_cut2/c0_in[i];
+                c1[i] := w_cut*c1_in[i]/c0_in[i];
               end for;
             end highPass;
 
             function bandPass "Return band pass filter coefficients at given cut-off frequency"
               import Modelica.Constants.pi;
               extends Modelica.Icons.Function;
-              input Real[:] cr_in "Coefficients of real poles";
-              input Real[:] c0_in "Coefficients of s^0 term if conjugate complex pole";
-              input Real[size(c0_in, 1)] c1_in "Coefficients of s^1 term if conjugate complex pole";
+              input Real cr_in[:] "Coefficients of real poles";
+              input Real c0_in[:] "Coefficients of s^0 term if conjugate complex pole";
+              input Real c1_in[size(c0_in, 1)] "Coefficients of s^1 term if conjugate complex pole";
               input SI.Frequency f_min "Band of band pass filter is f_min (A=-3db) .. f_max (A=-3db)";
               input SI.Frequency f_max "Upper band frequency";
-              output Real[0] cr "Coefficient of real pole";
-              output Real[size(cr_in, 1) + 2 * size(c0_in, 1)] c0 "Coefficients of s^0 term if conjugate complex pole";
-              output Real[size(cr_in, 1) + 2 * size(c0_in, 1)] c1 "Coefficients of s^1 term if conjugate complex pole";
+              output Real cr[0] "Coefficient of real pole";
+              output Real c0[size(cr_in, 1) + 2*size(c0_in, 1)] "Coefficients of s^0 term if conjugate complex pole";
+              output Real c1[size(cr_in, 1) + 2*size(c0_in, 1)] "Coefficients of s^1 term if conjugate complex pole";
               output Real cn "Numerator coefficient of the PT2 terms";
             protected
-              SI.Frequency f0 = sqrt(f_min * f_max);
-              SI.AngularVelocity w_cut = 2 * pi * f0 "Cut-off angular frequency";
-              Real w_band = (f_max - f_min) / f0;
-              Real w_cut2 = w_cut * w_cut;
+              SI.Frequency f0 = sqrt(f_min*f_max);
+              SI.AngularVelocity w_cut = 2*pi*f0 "Cut-off angular frequency";
+              Real w_band = (f_max - f_min)/f0;
+              Real w_cut2 = w_cut*w_cut;
               Real c;
               Real alpha;
               Integer j;
             algorithm
               assert(f_min > 0 and f_min < f_max, "Band frequencies f_min and f_max are wrong");
               for i in 1:size(cr_in, 1) loop
-                c1[i] := w_cut * cr_in[i] * w_band;
+                c1[i] := w_cut*cr_in[i]*w_band;
                 c0[i] := w_cut2;
               end for;
               for i in 1:size(c1_in, 1) loop
                 alpha := Modelica.Blocks.Continuous.Internal.Filter.Utilities.bandPassAlpha(c1_in[i], c0_in[i], w_band);
-                c := c1_in[i] * w_band / (alpha + 1 / alpha);
-                j := size(cr_in, 1) + 2 * i - 1;
-                c1[j] := w_cut * c / alpha;
-                c1[j + 1] := w_cut * c * alpha;
-                c0[j] := w_cut2 / alpha ^ 2;
-                c0[j + 1] := w_cut2 * alpha ^ 2;
+                c := c1_in[i]*w_band/(alpha + 1/alpha);
+                j := size(cr_in, 1) + 2*i - 1;
+                c1[j] := w_cut*c/alpha;
+                c1[j + 1] := w_cut*c*alpha;
+                c0[j] := w_cut2/alpha^2;
+                c0[j + 1] := w_cut2*alpha^2;
               end for;
-              cn := w_band * w_cut;
+              cn := w_band*w_cut;
             end bandPass;
 
             function bandStop "Return band stop filter coefficients at given cut-off frequency"
               import Modelica.Constants.pi;
               extends Modelica.Icons.Function;
-              input Real[:] cr_in "Coefficients of real poles";
-              input Real[:] c0_in "Coefficients of s^0 term if conjugate complex pole";
-              input Real[size(c0_in, 1)] c1_in "Coefficients of s^1 term if conjugate complex pole";
+              input Real cr_in[:] "Coefficients of real poles";
+              input Real c0_in[:] "Coefficients of s^0 term if conjugate complex pole";
+              input Real c1_in[size(c0_in, 1)] "Coefficients of s^1 term if conjugate complex pole";
               input SI.Frequency f_min "Band of band stop filter is f_min (A=-3db) .. f_max (A=-3db)";
               input SI.Frequency f_max "Upper band frequency";
-              output Real[0] cr "Coefficient of real pole";
-              output Real[size(cr_in, 1) + 2 * size(c0_in, 1)] c0 "Coefficients of s^0 term if conjugate complex pole";
-              output Real[size(cr_in, 1) + 2 * size(c0_in, 1)] c1 "Coefficients of s^1 term if conjugate complex pole";
+              output Real cr[0] "Coefficient of real pole";
+              output Real c0[size(cr_in, 1) + 2*size(c0_in, 1)] "Coefficients of s^0 term if conjugate complex pole";
+              output Real c1[size(cr_in, 1) + 2*size(c0_in, 1)] "Coefficients of s^1 term if conjugate complex pole";
             protected
-              SI.Frequency f0 = sqrt(f_min * f_max);
-              SI.AngularVelocity w_cut = 2 * pi * f0 "Cut-off angular frequency";
-              Real w_band = (f_max - f_min) / f0;
-              Real w_cut2 = w_cut * w_cut;
+              SI.Frequency f0 = sqrt(f_min*f_max);
+              SI.AngularVelocity w_cut = 2*pi*f0 "Cut-off angular frequency";
+              Real w_band = (f_max - f_min)/f0;
+              Real w_cut2 = w_cut*w_cut;
               Real c;
               Real ww;
               Real alpha;
@@ -378,18 +411,18 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             algorithm
               assert(f_min > 0 and f_min < f_max, "Band frequencies f_min and f_max are wrong");
               for i in 1:size(cr_in, 1) loop
-                c1[i] := w_cut * w_band / cr_in[i];
+                c1[i] := w_cut*w_band/cr_in[i];
                 c0[i] := w_cut2;
               end for;
               for i in 1:size(c1_in, 1) loop
-                ww := w_band / c0_in[i];
+                ww := w_band/c0_in[i];
                 alpha := Modelica.Blocks.Continuous.Internal.Filter.Utilities.bandPassAlpha(c1_in[i], c0_in[i], ww);
-                c := c1_in[i] * ww / (alpha + 1 / alpha);
-                j := size(cr_in, 1) + 2 * i - 1;
-                c1[j] := w_cut * c / alpha;
-                c1[j + 1] := w_cut * c * alpha;
-                c0[j] := w_cut2 / alpha ^ 2;
-                c0[j + 1] := w_cut2 * alpha ^ 2;
+                c := c1_in[i]*ww/(alpha + 1/alpha);
+                j := size(cr_in, 1) + 2*i - 1;
+                c1[j] := w_cut*c/alpha;
+                c1[j + 1] := w_cut*c*alpha;
+                c0[j] := w_cut2/alpha^2;
+                c0[j + 1] := w_cut2*alpha^2;
               end for;
             end bandStop;
           end coefficients;
@@ -399,46 +432,46 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
 
             function lowPass "Return low pass filter roots as needed for block for given cut-off frequency"
               extends Modelica.Icons.Function;
-              input Real[:] cr_in "Coefficients of real poles of base filter";
-              input Real[:] c0_in "Coefficients of s^0 term of base filter if conjugate complex pole";
-              input Real[size(c0_in, 1)] c1_in "Coefficients of s^1 term of base filter if conjugate complex pole";
+              input Real cr_in[:] "Coefficients of real poles of base filter";
+              input Real c0_in[:] "Coefficients of s^0 term of base filter if conjugate complex pole";
+              input Real c1_in[size(c0_in, 1)] "Coefficients of s^1 term of base filter if conjugate complex pole";
               input SI.Frequency f_cut "Cut-off frequency";
-              output Real[size(cr_in, 1)] r "Real eigenvalues";
-              output Real[size(c0_in, 1)] a "Real parts of complex conjugate eigenvalues";
-              output Real[size(c0_in, 1)] b "Imaginary parts of complex conjugate eigenvalues";
-              output Real[size(c0_in, 1)] ku "Input gain";
+              output Real r[size(cr_in, 1)] "Real eigenvalues";
+              output Real a[size(c0_in, 1)] "Real parts of complex conjugate eigenvalues";
+              output Real b[size(c0_in, 1)] "Imaginary parts of complex conjugate eigenvalues";
+              output Real ku[size(c0_in, 1)] "Input gain";
             protected
-              Real[size(c0_in, 1)] c0;
-              Real[size(c0_in, 1)] c1;
-              Real[size(cr_in, 1)] cr;
+              Real c0[size(c0_in, 1)];
+              Real c1[size(c0_in, 1)];
+              Real cr[size(cr_in, 1)];
             algorithm
               (cr, c0, c1) := coefficients.lowPass(cr_in, c0_in, c1_in, f_cut);
               for i in 1:size(cr_in, 1) loop
                 r[i] := -cr[i];
               end for;
               for i in 1:size(c0_in, 1) loop
-                a[i] := -c1[i] / 2;
-                b[i] := sqrt(c0[i] - a[i] * a[i]);
-                ku[i] := c0[i] / b[i];
+                a[i] := -c1[i]/2;
+                b[i] := sqrt(c0[i] - a[i]*a[i]);
+                ku[i] := c0[i]/b[i];
               end for;
             end lowPass;
 
             function highPass "Return high pass filter roots as needed for block for given cut-off frequency"
               extends Modelica.Icons.Function;
-              input Real[:] cr_in "Coefficients of real poles of base filter";
-              input Real[:] c0_in "Coefficients of s^0 term of base filter if conjugate complex pole";
-              input Real[size(c0_in, 1)] c1_in "Coefficients of s^1 term of base filter if conjugate complex pole";
+              input Real cr_in[:] "Coefficients of real poles of base filter";
+              input Real c0_in[:] "Coefficients of s^0 term of base filter if conjugate complex pole";
+              input Real c1_in[size(c0_in, 1)] "Coefficients of s^1 term of base filter if conjugate complex pole";
               input SI.Frequency f_cut "Cut-off frequency";
-              output Real[size(cr_in, 1)] r "Real eigenvalues";
-              output Real[size(c0_in, 1)] a "Real parts of complex conjugate eigenvalues";
-              output Real[size(c0_in, 1)] b "Imaginary parts of complex conjugate eigenvalues";
-              output Real[size(c0_in, 1)] ku "Gains of input terms";
-              output Real[size(c0_in, 1)] k1 "Gains of y = k1*x1 + k2*x + u";
-              output Real[size(c0_in, 1)] k2 "Gains of y = k1*x1 + k2*x + u";
+              output Real r[size(cr_in, 1)] "Real eigenvalues";
+              output Real a[size(c0_in, 1)] "Real parts of complex conjugate eigenvalues";
+              output Real b[size(c0_in, 1)] "Imaginary parts of complex conjugate eigenvalues";
+              output Real ku[size(c0_in, 1)] "Gains of input terms";
+              output Real k1[size(c0_in, 1)] "Gains of y = k1*x1 + k2*x + u";
+              output Real k2[size(c0_in, 1)] "Gains of y = k1*x1 + k2*x + u";
             protected
-              Real[size(c0_in, 1)] c0;
-              Real[size(c0_in, 1)] c1;
-              Real[size(cr_in, 1)] cr;
+              Real c0[size(c0_in, 1)];
+              Real c1[size(c0_in, 1)];
+              Real cr[size(cr_in, 1)];
               Real ba2;
             algorithm
               (cr, c0, c1) := coefficients.highPass(cr_in, c0_in, c1_in, f_cut);
@@ -446,74 +479,74 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
                 r[i] := -cr[i];
               end for;
               for i in 1:size(c0_in, 1) loop
-                a[i] := -c1[i] / 2;
-                b[i] := sqrt(c0[i] - a[i] * a[i]);
-                ku[i] := c0[i] / b[i];
-                k1[i] := 2 * a[i] / ku[i];
-                ba2 := (b[i] / a[i]) ^ 2;
-                k2[i] := (1 - ba2) / (1 + ba2);
+                a[i] := -c1[i]/2;
+                b[i] := sqrt(c0[i] - a[i]*a[i]);
+                ku[i] := c0[i]/b[i];
+                k1[i] := 2*a[i]/ku[i];
+                ba2 := (b[i]/a[i])^2;
+                k2[i] := (1 - ba2)/(1 + ba2);
               end for;
             end highPass;
 
             function bandPass "Return band pass filter roots as needed for block for given cut-off frequency"
               extends Modelica.Icons.Function;
-              input Real[:] cr_in "Coefficients of real poles of base filter";
-              input Real[:] c0_in "Coefficients of s^0 term of base filter if conjugate complex pole";
-              input Real[size(c0_in, 1)] c1_in "Coefficients of s^1 term of base filter if conjugate complex pole";
+              input Real cr_in[:] "Coefficients of real poles of base filter";
+              input Real c0_in[:] "Coefficients of s^0 term of base filter if conjugate complex pole";
+              input Real c1_in[size(c0_in, 1)] "Coefficients of s^1 term of base filter if conjugate complex pole";
               input SI.Frequency f_min "Band of band pass filter is f_min (A=-3db) .. f_max (A=-3db)";
               input SI.Frequency f_max "Upper band frequency";
-              output Real[size(cr_in, 1) + 2 * size(c0_in, 1)] a "Real parts of complex conjugate eigenvalues";
-              output Real[size(cr_in, 1) + 2 * size(c0_in, 1)] b "Imaginary parts of complex conjugate eigenvalues";
-              output Real[size(cr_in, 1) + 2 * size(c0_in, 1)] ku "Gains of input terms";
-              output Real[size(cr_in, 1) + 2 * size(c0_in, 1)] k1 "Gains of y = k1*x1 + k2*x";
-              output Real[size(cr_in, 1) + 2 * size(c0_in, 1)] k2 "Gains of y = k1*x1 + k2*x";
+              output Real a[size(cr_in, 1) + 2*size(c0_in, 1)] "Real parts of complex conjugate eigenvalues";
+              output Real b[size(cr_in, 1) + 2*size(c0_in, 1)] "Imaginary parts of complex conjugate eigenvalues";
+              output Real ku[size(cr_in, 1) + 2*size(c0_in, 1)] "Gains of input terms";
+              output Real k1[size(cr_in, 1) + 2*size(c0_in, 1)] "Gains of y = k1*x1 + k2*x";
+              output Real k2[size(cr_in, 1) + 2*size(c0_in, 1)] "Gains of y = k1*x1 + k2*x";
             protected
-              Real[0] cr;
-              Real[size(a, 1)] c0;
-              Real[size(a, 1)] c1;
+              Real cr[0];
+              Real c0[size(a, 1)];
+              Real c1[size(a, 1)];
               Real cn;
               Real bb;
             algorithm
               (cr, c0, c1, cn) := coefficients.bandPass(cr_in, c0_in, c1_in, f_min, f_max);
               for i in 1:size(a, 1) loop
-                a[i] := -c1[i] / 2;
-                bb := c0[i] - a[i] * a[i];
+                a[i] := -c1[i]/2;
+                bb := c0[i] - a[i]*a[i];
                 assert(bb >= 0, "\nNot possible to use band pass filter, since transformation results in\n" + "system that does not have conjugate complex poles.\n" + "Try to use another analog filter for the band pass.\n");
                 b[i] := sqrt(bb);
-                ku[i] := c0[i] / b[i];
-                k1[i] := cn / ku[i];
-                k2[i] := cn * a[i] / (b[i] * ku[i]);
+                ku[i] := c0[i]/b[i];
+                k1[i] := cn/ku[i];
+                k2[i] := cn*a[i]/(b[i]*ku[i]);
               end for;
             end bandPass;
 
             function bandStop "Return band stop filter roots as needed for block for given cut-off frequency"
               extends Modelica.Icons.Function;
-              input Real[:] cr_in "Coefficients of real poles of base filter";
-              input Real[:] c0_in "Coefficients of s^0 term of base filter if conjugate complex pole";
-              input Real[size(c0_in, 1)] c1_in "Coefficients of s^1 term of base filter if conjugate complex pole";
+              input Real cr_in[:] "Coefficients of real poles of base filter";
+              input Real c0_in[:] "Coefficients of s^0 term of base filter if conjugate complex pole";
+              input Real c1_in[size(c0_in, 1)] "Coefficients of s^1 term of base filter if conjugate complex pole";
               input SI.Frequency f_min "Band of band stop filter is f_min (A=-3db) .. f_max (A=-3db)";
               input SI.Frequency f_max "Upper band frequency";
-              output Real[size(cr_in, 1) + 2 * size(c0_in, 1)] a "Real parts of complex conjugate eigenvalues";
-              output Real[size(cr_in, 1) + 2 * size(c0_in, 1)] b "Imaginary parts of complex conjugate eigenvalues";
-              output Real[size(cr_in, 1) + 2 * size(c0_in, 1)] ku "Gains of input terms";
-              output Real[size(cr_in, 1) + 2 * size(c0_in, 1)] k1 "Gains of y = k1*x1 + k2*x";
-              output Real[size(cr_in, 1) + 2 * size(c0_in, 1)] k2 "Gains of y = k1*x1 + k2*x";
+              output Real a[size(cr_in, 1) + 2*size(c0_in, 1)] "Real parts of complex conjugate eigenvalues";
+              output Real b[size(cr_in, 1) + 2*size(c0_in, 1)] "Imaginary parts of complex conjugate eigenvalues";
+              output Real ku[size(cr_in, 1) + 2*size(c0_in, 1)] "Gains of input terms";
+              output Real k1[size(cr_in, 1) + 2*size(c0_in, 1)] "Gains of y = k1*x1 + k2*x";
+              output Real k2[size(cr_in, 1) + 2*size(c0_in, 1)] "Gains of y = k1*x1 + k2*x";
             protected
-              Real[0] cr;
-              Real[size(a, 1)] c0;
-              Real[size(a, 1)] c1;
+              Real cr[0];
+              Real c0[size(a, 1)];
+              Real c1[size(a, 1)];
               Real cn;
               Real bb;
             algorithm
               (cr, c0, c1) := coefficients.bandStop(cr_in, c0_in, c1_in, f_min, f_max);
               for i in 1:size(a, 1) loop
-                a[i] := -c1[i] / 2;
-                bb := c0[i] - a[i] * a[i];
+                a[i] := -c1[i]/2;
+                bb := c0[i] - a[i]*a[i];
                 assert(bb >= 0, "\nNot possible to use band stop filter, since transformation results in\n" + "system that does not have conjugate complex poles.\n" + "Try to use another analog filter for the band stop filter.\n");
                 b[i] := sqrt(bb);
-                ku[i] := c0[i] / b[i];
-                k1[i] := 2 * a[i] / ku[i];
-                k2[i] := (c0[i] + a[i] ^ 2 - b[i] ^ 2) / (b[i] * ku[i]);
+                ku[i] := c0[i]/b[i];
+                k1[i] := 2*a[i]/ku[i];
+                k2[i] := (c0[i] + a[i]^2 - b[i]^2)/(b[i]*ku[i]);
               end for;
             end bandStop;
           end roots;
@@ -525,8 +558,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
               extends Modelica.Icons.Function;
               import Modelica.Utilities.Streams;
               input Integer order "Order of filter in the range 1..41";
-              output Real[mod(order, 2)] c1 "[p] coefficients of Bessel denominator polynomials (a*p + 1)";
-              output Real[integer(order / 2), 2] c2 "[p^2, p] coefficients of Bessel denominator polynomials (b2*p^2 + b1*p + 1)";
+              output Real c1[mod(order, 2)] "[p] coefficients of Bessel denominator polynomials (a*p + 1)";
+              output Real c2[integer(order/2), 2] "[p^2, p] coefficients of Bessel denominator polynomials (b2*p^2 + b1*p + 1)";
               output Real alpha "Normalization factor";
             algorithm
               if order == 1 then
@@ -1479,26 +1512,26 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
 
             function toHighestPowerOne "Transform filter to form with highest power of s equal 1"
               extends Modelica.Icons.Function;
-              input Real[:] den1 "[s] coefficients of polynomials (den1[i]*s + 1)";
-              input Real[:, 2] den2 "[s^2, s] coefficients of polynomials (den2[i,1]*s^2 + den2[i,2]*s + 1)";
-              output Real[size(den1, 1)] cr "[s^0] coefficients of polynomials cr[i]*(s+1/cr[i])";
-              output Real[size(den2, 1)] c0 "[s^0] coefficients of polynomials (s^2 + (den2[i,2]/den2[i,1])*s + (1/den2[i,1]))";
-              output Real[size(den2, 1)] c1 "[s^1] coefficients of polynomials (s^2 + (den2[i,2]/den2[i,1])*s + (1/den2[i,1]))";
+              input Real den1[:] "[s] coefficients of polynomials (den1[i]*s + 1)";
+              input Real den2[:, 2] "[s^2, s] coefficients of polynomials (den2[i,1]*s^2 + den2[i,2]*s + 1)";
+              output Real cr[size(den1, 1)] "[s^0] coefficients of polynomials cr[i]*(s+1/cr[i])";
+              output Real c0[size(den2, 1)] "[s^0] coefficients of polynomials (s^2 + (den2[i,2]/den2[i,1])*s + (1/den2[i,1]))";
+              output Real c1[size(den2, 1)] "[s^1] coefficients of polynomials (s^2 + (den2[i,2]/den2[i,1])*s + (1/den2[i,1]))";
             algorithm
               for i in 1:size(den1, 1) loop
-                cr[i] := 1 / den1[i];
+                cr[i] := 1/den1[i];
               end for;
               for i in 1:size(den2, 1) loop
-                c1[i] := den2[i, 2] / den2[i, 1];
-                c0[i] := 1 / den2[i, 1];
+                c1[i] := den2[i, 2]/den2[i, 1];
+                c0[i] := 1/den2[i, 1];
               end for;
             end toHighestPowerOne;
 
             function normalizationFactor "Compute correction factor of low pass filter such that amplitude at cut-off frequency is -3db (=10^(-3/20) = 0.70794...)"
               extends Modelica.Icons.Function;
               import Modelica.Utilities.Streams;
-              input Real[:] c1 "[p] coefficients of denominator polynomials (c1[i}*p + 1)";
-              input Real[:, 2] c2 "[p^2, p] coefficients of denominator polynomials (c2[i,1]*p^2 + c2[i,2]*p + 1)";
+              input Real c1[:] "[p] coefficients of denominator polynomials (c1[i}*p + 1)";
+              input Real c2[:, 2] "[p^2, p] coefficients of denominator polynomials (c2[i,1]*p^2 + c2[i,2]*p + 1)";
               output Real alpha "Correction factor (replace p by alpha*p)";
             protected
               Real alpha_min;
@@ -1506,39 +1539,39 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
 
               function normalizationResidue "Residue of correction factor computation"
                 extends Modelica.Icons.Function;
-                input Real[:] c1 "[p] coefficients of denominator polynomials (c1[i]*p + 1)";
-                input Real[:, 2] c2 "[p^2, p] coefficients of denominator polynomials (c2[i,1]*p^2 + c2[i,2]*p + 1)";
+                input Real c1[:] "[p] coefficients of denominator polynomials (c1[i]*p + 1)";
+                input Real c2[:, 2] "[p^2, p] coefficients of denominator polynomials (c2[i,1]*p^2 + c2[i,2]*p + 1)";
                 input Real alpha;
                 output Real residue;
               protected
-                constant Real beta = 10 ^ (-3 / 20) "Amplitude of -3db required, i.e., -3db = 20*log(beta)";
+                constant Real beta = 10^(-3/20) "Amplitude of -3db required, i.e., -3db = 20*log(beta)";
                 Real cc1;
                 Real cc2;
                 Real p;
-                Real alpha2 = alpha * alpha;
-                Real alpha4 = alpha2 * alpha2;
+                Real alpha2 = alpha*alpha;
+                Real alpha4 = alpha2*alpha2;
                 Real A2 = 1.0;
               algorithm
                 assert(size(c1, 1) <= 1, "Internal error 2 (should not occur)");
                 if size(c1, 1) == 1 then
-                  cc1 := c1[1] * c1[1];
-                  p := 1 + cc1 * alpha2;
-                  A2 := A2 * p;
+                  cc1 := c1[1]*c1[1];
+                  p := 1 + cc1*alpha2;
+                  A2 := A2*p;
                 else
                 end if;
                 for i in 1:size(c2, 1) loop
-                  cc1 := c2[i, 2] * c2[i, 2] - 2 * c2[i, 1];
-                  cc2 := c2[i, 1] * c2[i, 1];
-                  p := 1 + cc1 * alpha2 + cc2 * alpha4;
-                  A2 := A2 * p;
+                  cc1 := c2[i, 2]*c2[i, 2] - 2*c2[i, 1];
+                  cc2 := c2[i, 1]*c2[i, 1];
+                  p := 1 + cc1*alpha2 + cc2*alpha4;
+                  A2 := A2*p;
                 end for;
-                residue := 1 / sqrt(A2) - beta;
+                residue := 1/sqrt(A2) - beta;
               end normalizationResidue;
 
               function findInterval "Find interval for the root"
                 extends Modelica.Icons.Function;
-                input Real[:] c1 "[p] coefficients of denominator polynomials (a*p + 1)";
-                input Real[:, 2] c2 "[p^2, p] coefficients of denominator polynomials (b*p^2 + a*p + 1)";
+                input Real c1[:] "[p] coefficients of denominator polynomials (a*p + 1)";
+                input Real c2[:, 2] "[p^2, p] coefficients of denominator polynomials (b*p^2 + a*p + 1)";
                 output Real alpha_min;
                 output Real alpha_max;
               protected
@@ -1551,7 +1584,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
                   alpha_max := alpha;
                 else
                   while residue >= 0 loop
-                    alpha := 1.1 * alpha;
+                    alpha := 1.1*alpha;
                     residue := normalizationResidue(c1, c2, alpha);
                   end while;
                   alpha_max := alpha;
@@ -1561,11 +1594,11 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
               function solveOneNonlinearEquation "Solve f(u) = 0; f(u_min) and f(u_max) must have different signs"
                 extends Modelica.Icons.Function;
                 import Modelica.Utilities.Streams.error;
-                input Real[:] c1 "[p] coefficients of denominator polynomials (c1[i]*p + 1)";
-                input Real[:, 2] c2 "[p^2, p] coefficients of denominator polynomials (c2[i,1]*p^2 + c2[i,2]*p + 1)";
+                input Real c1[:] "[p] coefficients of denominator polynomials (c1[i]*p + 1)";
+                input Real c2[:, 2] "[p^2, p] coefficients of denominator polynomials (c2[i,1]*p^2 + c2[i,2]*p + 1)";
                 input Real u_min "Lower bound of search interval";
                 input Real u_max "Upper bound of search interval";
-                input Real tolerance = 100 * Modelica.Constants.eps "Relative tolerance of solution u";
+                input Real tolerance = 100*Modelica.Constants.eps "Relative tolerance of solution u";
                 output Real u "Value of independent variable so that f(u) = 0";
               protected
                 constant Real eps = Modelica.Constants.eps "Machine epsilon";
@@ -1606,8 +1639,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
                     fc := fa;
                   else
                   end if;
-                  tol := 2 * eps * abs(b) + tolerance;
-                  m := (c - b) / 2;
+                  tol := 2*eps*abs(b) + tolerance;
+                  m := (c - b)/2;
                   if abs(m) <= tol or fb == 0.0 then
                     found := true;
                     u := b;
@@ -1616,15 +1649,15 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
                       e := m;
                       d := e;
                     else
-                      s := fb / fa;
+                      s := fb/fa;
                       if a == c then
-                        p := 2 * m * s;
+                        p := 2*m*s;
                         q := 1 - s;
                       else
-                        q := fa / fc;
-                        r := fb / fc;
-                        p := s * (2 * m * q * (q - r) - (b - a) * (r - 1));
-                        q := (q - 1) * (r - 1) * (s - 1);
+                        q := fa/fc;
+                        r := fb/fc;
+                        p := s*(2*m*q*(q - r) - (b - a)*(r - 1));
+                        q := (q - 1)*(r - 1)*(s - 1);
                       end if;
                       if p > 0 then
                         q := -q;
@@ -1633,8 +1666,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
                       end if;
                       s := e;
                       e := d;
-                      if 2 * p < 3 * m * q - abs(tol * q) and p < abs(0.5 * s * q) then
-                        d := p / q;
+                      if 2*p < 3*m*q - abs(tol*q) and p < abs(0.5*s*q) then
+                        d := p/q;
                       else
                         e := m;
                         d := e;
@@ -1681,7 +1714,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
                 input Real z;
                 output Real res;
               algorithm
-                res := z ^ 2 + (a * w * z / (1 + z)) ^ 2 - (2 + b * w ^ 2) * z + 1;
+                res := z^2 + (a*w*z/(1 + z))^2 - (2 + b*w^2)*z + 1;
               end residue;
 
               function solveOneNonlinearEquation "Solve f(u) = 0; f(u_min) and f(u_max) must have different signs"
@@ -1692,7 +1725,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
                 input Real ww;
                 input Real u_min "Lower bound of search interval";
                 input Real u_max "Upper bound of search interval";
-                input Real tolerance = 100 * Modelica.Constants.eps "Relative tolerance of solution u";
+                input Real tolerance = 100*Modelica.Constants.eps "Relative tolerance of solution u";
                 output Real u "Value of independent variable so that f(u) = 0";
               protected
                 constant Real eps = Modelica.Constants.eps "Machine epsilon";
@@ -1733,8 +1766,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
                     fc := fa;
                   else
                   end if;
-                  tol := 2 * eps * abs(b) + tolerance;
-                  m := (c - b) / 2;
+                  tol := 2*eps*abs(b) + tolerance;
+                  m := (c - b)/2;
                   if abs(m) <= tol or fb == 0.0 then
                     found := true;
                     u := b;
@@ -1743,15 +1776,15 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
                       e := m;
                       d := e;
                     else
-                      s := fb / fa;
+                      s := fb/fa;
                       if a == c then
-                        p := 2 * m * s;
+                        p := 2*m*s;
                         q := 1 - s;
                       else
-                        q := fa / fc;
-                        r := fb / fc;
-                        p := s * (2 * m * q * (q - r) - (b - a) * (r - 1));
-                        q := (q - 1) * (r - 1) * (s - 1);
+                        q := fa/fc;
+                        r := fb/fc;
+                        p := s*(2*m*q*(q - r) - (b - a)*(r - 1));
+                        q := (q - 1)*(r - 1)*(s - 1);
                       end if;
                       if p > 0 then
                         q := -q;
@@ -1760,8 +1793,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
                       end if;
                       s := e;
                       e := d;
-                      if 2 * p < 3 * m * q - abs(tol * q) and p < abs(0.5 * s * q) then
-                        d := p / q;
+                      if 2*p < 3*m*q - abs(tol*q) and p < abs(0.5*s*q) then
+                        d := p/q;
                       else
                         e := m;
                         d := e;
@@ -1782,7 +1815,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
                 end while;
               end solveOneNonlinearEquation;
             algorithm
-              assert(a ^ 2 / 4 - b <= 0, "Band pass transformation cannot be computed");
+              assert(a^2/4 - b <= 0, "Band pass transformation cannot be computed");
               z := solveOneNonlinearEquation(a, b, w, 0, 1);
               alpha := sqrt(z);
             end bandPassAlpha;
@@ -1830,7 +1863,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         outer Modelica.Blocks.Noise.GlobalSeed globalSeed "Definition of global seed via inner/outer";
         parameter Integer actualGlobalSeed = if useGlobalSeed then globalSeed.seed else 0 "The global seed, which is actually used";
         parameter Boolean generateNoise = enableNoise and globalSeed.enableNoise "= true, if noise shall be generated, otherwise no noise";
-        Integer[generator.nState] state "Internal state of random number generator";
+        Integer state[generator.nState] "Internal state of random number generator";
         discrete Real r "Random number according to the desired distribution";
         discrete Real r_raw "Uniform random number in the range (0,1]";
       initial equation
@@ -1854,13 +1887,13 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         parameter Real k1 = +1 "Gain of input signal 1";
         parameter Real k2 = +1 "Gain of input signal 2";
       equation
-        y = k1 * u1 + k2 * u2;
+        y = k1*u1 + k2*u2;
       end Add;
 
       block Product "Output product of the two inputs"
         extends Interfaces.SI2SO;
       equation
-        y = u1 * u2;
+        y = u1*u2;
       end Product;
     end Math;
 
@@ -1947,15 +1980,15 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         parameter Types.Axis n = {0, -1, 0} "Direction of gravity resolved in world frame (gravity = g*n/length(n))" annotation(Evaluate = true);
         parameter Real mu(unit = "m3/s2", min = 0) = 3.986004418e14 "Gravity field constant (default = field constant of earth)";
         parameter Boolean driveTrainMechanics3D = true "= true, if 3-dim. mechanical effects of Parts.Mounting1D/Rotor1D/BevelGear1D shall be taken into account";
-        parameter SI.Distance axisLength = nominalLength / 2 "Length of world axes arrows";
-        parameter SI.Distance axisDiameter = axisLength / defaultFrameDiameterFraction "Diameter of world axes arrows";
+        parameter SI.Distance axisLength = nominalLength/2 "Length of world axes arrows";
+        parameter SI.Distance axisDiameter = axisLength/defaultFrameDiameterFraction "Diameter of world axes arrows";
         parameter Boolean axisShowLabels = true "= true, if labels shall be shown";
         input Types.Color axisColor_x = Modelica.Mechanics.MultiBody.Types.Defaults.FrameColor "Color of x-arrow";
         input Types.Color axisColor_y = axisColor_x;
         input Types.Color axisColor_z = axisColor_x "Color of z-arrow";
-        parameter SI.Position[3] gravityArrowTail = {0, 0, 0} "Position vector from origin of world frame to arrow tail, resolved in world frame";
-        parameter SI.Length gravityArrowLength = axisLength / 2 "Length of gravity arrow";
-        parameter SI.Diameter gravityArrowDiameter = gravityArrowLength / defaultWidthFraction "Diameter of gravity arrow";
+        parameter SI.Position gravityArrowTail[3] = {0, 0, 0} "Position vector from origin of world frame to arrow tail, resolved in world frame";
+        parameter SI.Length gravityArrowLength = axisLength/2 "Length of gravity arrow";
+        parameter SI.Diameter gravityArrowDiameter = gravityArrowLength/defaultWidthFraction "Diameter of gravity arrow";
         input Types.Color gravityArrowColor = {0, 230, 0} "Color of gravity arrow";
         parameter SI.Diameter gravitySphereDiameter = 12742000 "Diameter of sphere representing gravity center (default = mean diameter of earth)";
         input Types.Color gravitySphereColor = {0, 230, 0} "Color of gravity sphere";
@@ -1964,14 +1997,14 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         parameter SI.Length groundLength_v = groundLength_u "Length of ground plane perpendicular to groundAxis_u";
         input Types.Color groundColor = {200, 200, 200} "Color of ground plane";
         parameter SI.Length nominalLength = 1 "Nominal length of multi-body system";
-        parameter SI.Length defaultAxisLength = nominalLength / 5 "Default for length of a frame axis (but not world frame)";
-        parameter SI.Length defaultJointLength = nominalLength / 10 "Default for the fixed length of a shape representing a joint";
-        parameter SI.Length defaultJointWidth = nominalLength / 20 "Default for the fixed width of a shape representing a joint";
-        parameter SI.Length defaultForceLength = nominalLength / 10 "Default for the fixed length of a shape representing a force (e.g., damper)";
-        parameter SI.Length defaultForceWidth = nominalLength / 20 "Default for the fixed width of a shape representing a force (e.g., spring, bushing)";
-        parameter SI.Length defaultBodyDiameter = nominalLength / 9 "Default for diameter of sphere representing the center of mass of a body";
+        parameter SI.Length defaultAxisLength = nominalLength/5 "Default for length of a frame axis (but not world frame)";
+        parameter SI.Length defaultJointLength = nominalLength/10 "Default for the fixed length of a shape representing a joint";
+        parameter SI.Length defaultJointWidth = nominalLength/20 "Default for the fixed width of a shape representing a joint";
+        parameter SI.Length defaultForceLength = nominalLength/10 "Default for the fixed length of a shape representing a force (e.g., damper)";
+        parameter SI.Length defaultForceWidth = nominalLength/20 "Default for the fixed width of a shape representing a force (e.g., spring, bushing)";
+        parameter SI.Length defaultBodyDiameter = nominalLength/9 "Default for diameter of sphere representing the center of mass of a body";
         parameter Real defaultWidthFraction = 20 "Default for shape width as a fraction of shape length (e.g., for Parts.FixedTranslation)";
-        parameter SI.Length defaultArrowDiameter = nominalLength / 40 "Default for arrow diameter (e.g., of forces, torques, sensors)";
+        parameter SI.Length defaultArrowDiameter = nominalLength/40 "Default for arrow diameter (e.g., of forces, torques, sensors)";
         parameter Real defaultFrameDiameterFraction = 40 "Default for arrow diameter of a coordinate system as a fraction of axis length";
         parameter Real defaultSpecularCoefficient(min = 0) = 0.7 "Default reflection of ambient light (= 0: light is completely absorbed)";
         parameter Real defaultN_to_m(unit = "N/m", min = 0) = 1000 "Default scaling of force arrows (length = force/defaultN_to_m)";
@@ -1979,29 +2012,29 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
       protected
         parameter Integer ndim = if enableAnimation and animateWorld then 1 else 0;
         parameter Integer ndim2 = if enableAnimation and animateWorld and axisShowLabels then 1 else 0;
-        parameter SI.Length headLength = min(axisLength, axisDiameter * Types.Defaults.FrameHeadLengthFraction);
-        parameter SI.Length headWidth = axisDiameter * Types.Defaults.FrameHeadWidthFraction;
+        parameter SI.Length headLength = min(axisLength, axisDiameter*Types.Defaults.FrameHeadLengthFraction);
+        parameter SI.Length headWidth = axisDiameter*Types.Defaults.FrameHeadWidthFraction;
         parameter SI.Length lineLength = max(0, axisLength - headLength);
         parameter SI.Length lineWidth = axisDiameter;
-        parameter SI.Length scaledLabel = Modelica.Mechanics.MultiBody.Types.Defaults.FrameLabelHeightFraction * axisDiameter;
-        parameter SI.Length labelStart = 1.05 * axisLength;
+        parameter SI.Length scaledLabel = Modelica.Mechanics.MultiBody.Types.Defaults.FrameLabelHeightFraction*axisDiameter;
+        parameter SI.Length labelStart = 1.05*axisLength;
         Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape x_arrowLine(shapeType = "cylinder", length = lineLength, width = lineWidth, height = lineWidth, lengthDirection = {1, 0, 0}, widthDirection = {0, 1, 0}, color = axisColor_x, specularCoefficient = 0) if enableAnimation and animateWorld;
         Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape x_arrowHead(shapeType = "cone", length = headLength, width = headWidth, height = headWidth, lengthDirection = {1, 0, 0}, widthDirection = {0, 1, 0}, color = axisColor_x, r = {lineLength, 0, 0}, specularCoefficient = 0) if enableAnimation and animateWorld;
-        Modelica.Mechanics.MultiBody.Visualizers.Internal.Lines x_label(lines = scaledLabel * {[0, 0; 1, 1], [0, 1; 1, 0]}, diameter = axisDiameter, color = axisColor_x, r_lines = {labelStart, 0, 0}, n_x = {1, 0, 0}, n_y = {0, 1, 0}, specularCoefficient = 0) if enableAnimation and animateWorld and axisShowLabels;
+        Modelica.Mechanics.MultiBody.Visualizers.Internal.Lines x_label(lines = scaledLabel*{[0, 0; 1, 1], [0, 1; 1, 0]}, diameter = axisDiameter, color = axisColor_x, r_lines = {labelStart, 0, 0}, n_x = {1, 0, 0}, n_y = {0, 1, 0}, specularCoefficient = 0) if enableAnimation and animateWorld and axisShowLabels;
         Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape y_arrowLine(shapeType = "cylinder", length = lineLength, width = lineWidth, height = lineWidth, lengthDirection = {0, 1, 0}, widthDirection = {1, 0, 0}, color = axisColor_y, specularCoefficient = 0) if enableAnimation and animateWorld;
         Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape y_arrowHead(shapeType = "cone", length = headLength, width = headWidth, height = headWidth, lengthDirection = {0, 1, 0}, widthDirection = {1, 0, 0}, color = axisColor_y, r = {0, lineLength, 0}, specularCoefficient = 0) if enableAnimation and animateWorld;
-        Modelica.Mechanics.MultiBody.Visualizers.Internal.Lines y_label(lines = scaledLabel * {[0, 0; 1, 1.5], [0, 1.5; 0.5, 0.75]}, diameter = axisDiameter, color = axisColor_y, r_lines = {0, labelStart, 0}, n_x = {0, 1, 0}, n_y = {-1, 0, 0}, specularCoefficient = 0) if enableAnimation and animateWorld and axisShowLabels;
+        Modelica.Mechanics.MultiBody.Visualizers.Internal.Lines y_label(lines = scaledLabel*{[0, 0; 1, 1.5], [0, 1.5; 0.5, 0.75]}, diameter = axisDiameter, color = axisColor_y, r_lines = {0, labelStart, 0}, n_x = {0, 1, 0}, n_y = {-1, 0, 0}, specularCoefficient = 0) if enableAnimation and animateWorld and axisShowLabels;
         Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape z_arrowLine(shapeType = "cylinder", length = lineLength, width = lineWidth, height = lineWidth, lengthDirection = {0, 0, 1}, widthDirection = {0, 1, 0}, color = axisColor_z, specularCoefficient = 0) if enableAnimation and animateWorld;
         Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape z_arrowHead(shapeType = "cone", length = headLength, width = headWidth, height = headWidth, lengthDirection = {0, 0, 1}, widthDirection = {0, 1, 0}, color = axisColor_z, r = {0, 0, lineLength}, specularCoefficient = 0) if enableAnimation and animateWorld;
-        Modelica.Mechanics.MultiBody.Visualizers.Internal.Lines z_label(lines = scaledLabel * {[0, 0; 1, 0], [0, 1; 1, 1], [0, 1; 1, 0]}, diameter = axisDiameter, color = axisColor_z, r_lines = {0, 0, labelStart}, n_x = {0, 0, 1}, n_y = {0, 1, 0}, specularCoefficient = 0) if enableAnimation and animateWorld and axisShowLabels;
-        parameter SI.Length gravityHeadLength = min(gravityArrowLength, gravityArrowDiameter * Types.Defaults.ArrowHeadLengthFraction);
-        parameter SI.Length gravityHeadWidth = gravityArrowDiameter * Types.Defaults.ArrowHeadWidthFraction;
+        Modelica.Mechanics.MultiBody.Visualizers.Internal.Lines z_label(lines = scaledLabel*{[0, 0; 1, 0], [0, 1; 1, 1], [0, 1; 1, 0]}, diameter = axisDiameter, color = axisColor_z, r_lines = {0, 0, labelStart}, n_x = {0, 0, 1}, n_y = {0, 1, 0}, specularCoefficient = 0) if enableAnimation and animateWorld and axisShowLabels;
+        parameter SI.Length gravityHeadLength = min(gravityArrowLength, gravityArrowDiameter*Types.Defaults.ArrowHeadLengthFraction);
+        parameter SI.Length gravityHeadWidth = gravityArrowDiameter*Types.Defaults.ArrowHeadWidthFraction;
         parameter SI.Length gravityLineLength = max(0, gravityArrowLength - gravityHeadLength);
         Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape gravityArrowLine(shapeType = "cylinder", length = gravityLineLength, width = gravityArrowDiameter, height = gravityArrowDiameter, lengthDirection = n, widthDirection = {0, 1, 0}, color = gravityArrowColor, r_shape = gravityArrowTail, specularCoefficient = 0) if enableAnimation and animateGravity and gravityType == GravityTypes.UniformGravity;
-        Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape gravityArrowHead(shapeType = "cone", length = gravityHeadLength, width = gravityHeadWidth, height = gravityHeadWidth, lengthDirection = n, widthDirection = {0, 1, 0}, color = gravityArrowColor, r_shape = gravityArrowTail + Modelica.Math.Vectors.normalize(n) * gravityLineLength, specularCoefficient = 0) if enableAnimation and animateGravity and gravityType == GravityTypes.UniformGravity;
+        Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape gravityArrowHead(shapeType = "cone", length = gravityHeadLength, width = gravityHeadWidth, height = gravityHeadWidth, lengthDirection = n, widthDirection = {0, 1, 0}, color = gravityArrowColor, r_shape = gravityArrowTail + Modelica.Math.Vectors.normalize(n)*gravityLineLength, specularCoefficient = 0) if enableAnimation and animateGravity and gravityType == GravityTypes.UniformGravity;
         parameter Integer ndim_pointGravity = if enableAnimation and animateGravity and gravityType == GravityTypes.UniformGravity then 1 else 0;
-        Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape gravitySphere(shapeType = "sphere", r_shape = {-gravitySphereDiameter / 2, 0, 0}, lengthDirection = {1, 0, 0}, length = gravitySphereDiameter, width = gravitySphereDiameter, height = gravitySphereDiameter, color = gravitySphereColor, specularCoefficient = 0) if enableAnimation and animateGravity and gravityType == GravityTypes.PointGravity;
-        Modelica.Mechanics.MultiBody.Visualizers.Advanced.Surface surface(final multiColoredSurface = false, final wireframe = false, final color = groundColor, final specularCoefficient = 0, final transparency = 0, final R = Modelica.Mechanics.MultiBody.Frames.absoluteRotation(Modelica.Mechanics.MultiBody.Frames.from_nxy(n, groundAxis_u), Modelica.Mechanics.MultiBody.Frames.axesRotations({1, 2, 3}, {pi / 2, pi / 2, 0}, {0, 0, 0})), final r_0 = zeros(3), final nu = 2, final nv = 2, redeclare function surfaceCharacteristic = Modelica.Mechanics.MultiBody.Visualizers.Advanced.SurfaceCharacteristics.rectangle(lu = groundLength_u, lv = groundLength_v)) if enableAnimation and animateGround and gravityType == GravityTypes.UniformGravity;
+        Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape gravitySphere(shapeType = "sphere", r_shape = {-gravitySphereDiameter/2, 0, 0}, lengthDirection = {1, 0, 0}, length = gravitySphereDiameter, width = gravitySphereDiameter, height = gravitySphereDiameter, color = gravitySphereColor, specularCoefficient = 0) if enableAnimation and animateGravity and gravityType == GravityTypes.PointGravity;
+        Modelica.Mechanics.MultiBody.Visualizers.Advanced.Surface surface(final multiColoredSurface = false, final wireframe = false, final color = groundColor, final specularCoefficient = 0, final transparency = 0, final R = Modelica.Mechanics.MultiBody.Frames.absoluteRotation(Modelica.Mechanics.MultiBody.Frames.from_nxy(n, groundAxis_u), Modelica.Mechanics.MultiBody.Frames.axesRotations({1, 2, 3}, {pi/2, pi/2, 0}, {0, 0, 0})), final r_0 = zeros(3), final nu = 2, final nv = 2, redeclare function surfaceCharacteristic = Modelica.Mechanics.MultiBody.Visualizers.Advanced.SurfaceCharacteristics.rectangle(lu = groundLength_u, lv = groundLength_v)) if enableAnimation and animateGround and gravityType == GravityTypes.UniformGravity;
       equation
         Connections.root(frame_b.R);
         assert(Modelica.Math.Vectors.length(n) > 1e-10, "Parameter n of World object is wrong (length(n) > 0 required)");
@@ -2018,8 +2051,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
 
         record Orientation "Orientation object defining rotation from a frame 1 into a frame 2"
           extends Modelica.Icons.Record;
-          Real[3, 3] T "Transformation matrix from world frame to local frame";
-          SI.AngularVelocity[3] w "Absolute angular velocity of local frame, resolved in local frame";
+          Real T[3, 3] "Transformation matrix from world frame to local frame";
+          SI.AngularVelocity w[3] "Absolute angular velocity of local frame, resolved in local frame";
 
           encapsulated function equalityConstraint "Return the constraint residues to express that two frames have the same orientation"
             import Modelica;
@@ -2027,9 +2060,9 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             extends Modelica.Icons.Function;
             input Frames.Orientation R1 "Orientation object to rotate frame 0 into frame 1";
             input Frames.Orientation R2 "Orientation object to rotate frame 0 into frame 2";
-            output Real[3] residue "The rotation angles around x-, y-, and z-axis of frame 1 to rotate frame 1 into frame 2 for a small rotation (should be zero)";
+            output Real residue[3] "The rotation angles around x-, y-, and z-axis of frame 1 to rotate frame 1 into frame 2 for a small rotation (should be zero)";
           algorithm
-            residue := {Modelica.Math.atan2(cross(R1.T[1, :], R1.T[2, :]) * R2.T[2, :], R1.T[1, :] * R2.T[1, :]), Modelica.Math.atan2(-cross(R1.T[1, :], R1.T[2, :]) * R2.T[1, :], R1.T[2, :] * R2.T[2, :]), Modelica.Math.atan2(R1.T[2, :] * R2.T[1, :], R1.T[3, :] * R2.T[3, :])};
+            residue := {Modelica.Math.atan2(cross(R1.T[1, :], R1.T[2, :])*R2.T[2, :], R1.T[1, :]*R2.T[1, :]), Modelica.Math.atan2(-cross(R1.T[1, :], R1.T[2, :])*R2.T[1, :], R1.T[2, :]*R2.T[2, :]), Modelica.Math.atan2(R1.T[2, :]*R2.T[1, :], R1.T[3, :]*R2.T[3, :])};
             annotation(Inline = true);
           end equalityConstraint;
         end Orientation;
@@ -2037,20 +2070,20 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         function resolve1 "Transform vector from frame 2 to frame 1"
           extends Modelica.Icons.Function;
           input Orientation R "Orientation object to rotate frame 1 into frame 2";
-          input Real[3] v2 "Vector in frame 2";
-          output Real[3] v1 "Vector in frame 1";
+          input Real v2[3] "Vector in frame 2";
+          output Real v1[3] "Vector in frame 1";
         algorithm
-          v1 := transpose(R.T) * v2;
+          v1 := transpose(R.T)*v2;
           annotation(derivative(noDerivative = R) = Internal.resolve1_der, InlineAfterIndexReduction = true);
         end resolve1;
 
         function resolve2 "Transform vector from frame 1 to frame 2"
           extends Modelica.Icons.Function;
           input Orientation R "Orientation object to rotate frame 1 into frame 2";
-          input Real[3] v1 "Vector in frame 1";
-          output Real[3] v2 "Vector in frame 2";
+          input Real v1[3] "Vector in frame 1";
+          output Real v2[3] "Vector in frame 2";
         algorithm
-          v2 := R.T * v1;
+          v2 := R.T*v1;
           annotation(derivative(noDerivative = R) = Internal.resolve2_der, InlineAfterIndexReduction = true);
         end resolve2;
 
@@ -2068,26 +2101,26 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           input Orientation R_rel "Orientation object to rotate frame 1 into frame 2";
           output Orientation R2 "Orientation object to rotate frame 0 into frame 2";
         algorithm
-          R2 := Orientation(T = R_rel.T * R1.T, w = resolve2(R_rel, R1.w) + R_rel.w);
+          R2 := Orientation(T = R_rel.T*R1.T, w = resolve2(R_rel, R1.w) + R_rel.w);
           annotation(Inline = true);
         end absoluteRotation;
 
         function axesRotations "Return fixed rotation object to rotate in sequence around fixed angles along 3 axes"
           import TM = Modelica.Mechanics.MultiBody.Frames.TransformationMatrices;
           extends Modelica.Icons.Function;
-          input Integer[3] sequence(min = {1, 1, 1}, max = {3, 3, 3}) = {1, 2, 3} "Sequence of rotations from frame 1 to frame 2 along axis sequence[i]";
-          input SI.Angle[3] angles "Rotation angles around the axes defined in 'sequence'";
-          input SI.AngularVelocity[3] der_angles "= der(angles)";
+          input Integer sequence[3](min = {1, 1, 1}, max = {3, 3, 3}) = {1, 2, 3} "Sequence of rotations from frame 1 to frame 2 along axis sequence[i]";
+          input SI.Angle angles[3] "Rotation angles around the axes defined in 'sequence'";
+          input SI.AngularVelocity der_angles[3] "= der(angles)";
           output Orientation R "Orientation object to rotate frame 1 into frame 2";
         algorithm
-          R := Orientation(T = TM.axisRotation(sequence[3], angles[3]) * TM.axisRotation(sequence[2], angles[2]) * TM.axisRotation(sequence[1], angles[1]), w = Frames.axis(sequence[3]) * der_angles[3] + TM.resolve2(TM.axisRotation(sequence[3], angles[3]), Frames.axis(sequence[2]) * der_angles[2]) + TM.resolve2(TM.axisRotation(sequence[3], angles[3]) * TM.axisRotation(sequence[2], angles[2]), Frames.axis(sequence[1]) * der_angles[1]));
+          R := Orientation(T = TM.axisRotation(sequence[3], angles[3])*TM.axisRotation(sequence[2], angles[2])*TM.axisRotation(sequence[1], angles[1]), w = Frames.axis(sequence[3])*der_angles[3] + TM.resolve2(TM.axisRotation(sequence[3], angles[3]), Frames.axis(sequence[2])*der_angles[2]) + TM.resolve2(TM.axisRotation(sequence[3], angles[3])*TM.axisRotation(sequence[2], angles[2]), Frames.axis(sequence[1])*der_angles[1]));
           annotation(Inline = true);
         end axesRotations;
 
         function from_nxy "Return fixed orientation object from n_x and n_y vectors"
           extends Modelica.Icons.Function;
-          input Real[3] n_x(each final unit = "1") "Vector in direction of x-axis of frame 2, resolved in frame 1";
-          input Real[3] n_y(each final unit = "1") "Vector in direction of y-axis of frame 2, resolved in frame 1";
+          input Real n_x[3](each final unit = "1") "Vector in direction of x-axis of frame 2, resolved in frame 1";
+          input Real n_y[3](each final unit = "1") "Vector in direction of y-axis of frame 2, resolved in frame 1";
           output Orientation R "Orientation object to rotate frame 1 into frame 2";
         algorithm
           R := Orientation(T = TransformationMatrices.from_nxy(n_x, n_y), w = zeros(3));
@@ -2096,9 +2129,9 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         function axis "Return unit vector for x-, y-, or z-axis"
           extends Modelica.Icons.Function;
           input Integer axis(min = 1, max = 3) "Axis vector to be returned";
-          output Real[3] e(each final unit = "1") "Unit axis vector";
+          output Real e[3](each final unit = "1") "Unit axis vector";
         algorithm
-          e := if axis == 1 then {1, 0, 0} else if axis == 2 then {0, 1, 0} else {0, 0, 1};
+          e := if axis == 1 then {1, 0, 0} else (if axis == 2 then {0, 1, 0} else {0, 0, 1});
           annotation(Inline = true);
         end axis;
 
@@ -2114,9 +2147,9 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
               extends Modelica.Icons.Function;
               input TransformationMatrices.Orientation T1 "Orientation object to rotate frame 0 into frame 1";
               input TransformationMatrices.Orientation T2 "Orientation object to rotate frame 0 into frame 2";
-              output Real[3] residue "The rotation angles around x-, y-, and z-axis of frame 1 to rotate frame 1 into frame 2 for a small rotation (should be zero)";
+              output Real residue[3] "The rotation angles around x-, y-, and z-axis of frame 1 to rotate frame 1 into frame 2 for a small rotation (should be zero)";
             algorithm
-              residue := {cross(T1[1, :], T1[2, :]) * T2[2, :], -cross(T1[1, :], T1[2, :]) * T2[1, :], T1[2, :] * T2[1, :]};
+              residue := {cross(T1[1, :], T1[2, :])*T2[2, :], -cross(T1[1, :], T1[2, :])*T2[1, :], T1[2, :]*T2[1, :]};
               annotation(Inline = true);
             end equalityConstraint;
           end Orientation;
@@ -2124,20 +2157,20 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           function resolve1 "Transform vector from frame 2 to frame 1"
             extends Modelica.Icons.Function;
             input TransformationMatrices.Orientation T "Orientation object to rotate frame 1 into frame 2";
-            input Real[3] v2 "Vector in frame 2";
-            output Real[3] v1 "Vector in frame 1";
+            input Real v2[3] "Vector in frame 2";
+            output Real v1[3] "Vector in frame 1";
           algorithm
-            v1 := transpose(T) * v2;
+            v1 := transpose(T)*v2;
             annotation(Inline = true);
           end resolve1;
 
           function resolve2 "Transform vector from frame 1 to frame 2"
             extends Modelica.Icons.Function;
             input TransformationMatrices.Orientation T "Orientation object to rotate frame 1 into frame 2";
-            input Real[3] v1 "Vector in frame 1";
-            output Real[3] v2 "Vector in frame 2";
+            input Real v1[3] "Vector in frame 1";
+            output Real v2[3] "Vector in frame 2";
           algorithm
-            v2 := T * v1;
+            v2 := T*v1;
             annotation(Inline = true);
           end resolve2;
 
@@ -2147,7 +2180,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             input TransformationMatrices.Orientation T_rel "Orientation object to rotate frame 1 into frame 2";
             output TransformationMatrices.Orientation T2 "Orientation object to rotate frame 0 into frame 2";
           algorithm
-            T2 := T_rel * T1;
+            T2 := T_rel*T1;
             annotation(Inline = true);
           end absoluteRotation;
 
@@ -2165,16 +2198,16 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             extends Modelica.Icons.Function;
             import Modelica.Math.Vectors.length;
             import Modelica.Math.Vectors.normalize;
-            input Real[3] n_x(each final unit = "1") "Vector in direction of x-axis of frame 2, resolved in frame 1";
-            input Real[3] n_y(each final unit = "1") "Vector in direction of y-axis of frame 2, resolved in frame 1";
+            input Real n_x[3](each final unit = "1") "Vector in direction of x-axis of frame 2, resolved in frame 1";
+            input Real n_y[3](each final unit = "1") "Vector in direction of y-axis of frame 2, resolved in frame 1";
             output TransformationMatrices.Orientation T "Orientation object to rotate frame 1 into frame 2";
           protected
-            Real[3] e_x(each final unit = "1") = if length(n_x) < 1e-10 then {1, 0, 0} else normalize(n_x);
-            Real[3] e_y(each final unit = "1") = if length(n_y) < 1e-10 then {0, 1, 0} else normalize(n_y);
-            Real[3] n_z_aux(each final unit = "1") = cross(e_x, e_y);
-            Real[3] n_y_aux(each final unit = "1") = if n_z_aux * n_z_aux > 1.0e-6 then e_y else if abs(e_x[1]) > 1.0e-6 then {0, 1, 0} else {1, 0, 0};
-            Real[3] e_z_aux(each final unit = "1") = cross(e_x, n_y_aux);
-            Real[3] e_z(each final unit = "1") = normalize(e_z_aux);
+            Real e_x[3](each final unit = "1") = if length(n_x) < 1e-10 then {1, 0, 0} else normalize(n_x);
+            Real e_y[3](each final unit = "1") = if length(n_y) < 1e-10 then {0, 1, 0} else normalize(n_y);
+            Real n_z_aux[3](each final unit = "1") = cross(e_x, e_y);
+            Real n_y_aux[3](each final unit = "1") = if n_z_aux*n_z_aux > 1.0e-6 then e_y else if abs(e_x[1]) > 1.0e-6 then {0, 1, 0} else {1, 0, 0};
+            Real e_z_aux[3](each final unit = "1") = cross(e_x, n_y_aux);
+            Real e_z[3](each final unit = "1") = normalize(e_z_aux);
           algorithm
             T := {e_x, cross(e_z, e_x), e_z};
           end from_nxy;
@@ -2188,9 +2221,9 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             import Modelica.Mechanics.MultiBody.Frames;
             extends Modelica.Icons.Function;
             input Orientation R "Orientation object to rotate frame 1 into frame 2";
-            input Real[3] v2 "Vector resolved in frame 2";
-            input Real[3] v2_der "= der(v2)";
-            output Real[3] v1_der "Derivative of vector v resolved in frame 1";
+            input Real v2[3] "Vector resolved in frame 2";
+            input Real v2_der[3] "= der(v2)";
+            output Real v1_der[3] "Derivative of vector v resolved in frame 1";
           algorithm
             v1_der := Frames.resolve1(R, v2_der + cross(R.w, v2));
             annotation(Inline = true);
@@ -2200,9 +2233,9 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             import Modelica.Mechanics.MultiBody.Frames;
             extends Modelica.Icons.Function;
             input Orientation R "Orientation object to rotate frame 1 into frame 2";
-            input Real[3] v1 "Vector resolved in frame 1";
-            input Real[3] v1_der "= der(v1)";
-            output Real[3] v2_der "Derivative of vector v resolved in frame 2";
+            input Real v1[3] "Vector resolved in frame 1";
+            input Real v1_der[3] "= der(v1)";
+            output Real v2_der[3] "Derivative of vector v resolved in frame 2";
           algorithm
             v2_der := Frames.resolve2(R, v1_der) - cross(R.w, Frames.resolve2(R, v1));
             annotation(Inline = true);
@@ -2214,16 +2247,16 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         extends Modelica.Icons.InterfacesPackage;
 
         connector Frame "Coordinate system fixed to the component with one cut-force and cut-torque (no icon)"
-          SI.Position[3] r_0 "Position vector from world frame to the connector frame origin, resolved in world frame";
+          SI.Position r_0[3] "Position vector from world frame to the connector frame origin, resolved in world frame";
           Frames.Orientation R "Orientation object to rotate the world frame into the connector frame";
-          flow SI.Force[3] f "Cut-force resolved in connector frame" annotation(unassignedMessage = "All Forces cannot be uniquely calculated.
+          flow SI.Force f[3] "Cut-force resolved in connector frame" annotation(unassignedMessage = "All Forces cannot be uniquely calculated.
         The reason could be that the mechanism contains
         a planar loop or that joints constrain the
         same motion. For planar loops, use for one
         revolute joint per loop the joint
         Joints.RevolutePlanarLoopConstraint instead of
         Joints.Revolute.");
-          flow SI.Torque[3] t "Cut-torque resolved in connector frame";
+          flow SI.Torque t[3] "Cut-torque resolved in connector frame";
         end Frame;
 
         connector Frame_a "Coordinate system fixed to the component with one cut-force and cut-torque (filled rectangular icon)"
@@ -2250,10 +2283,10 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           input Integer nu "Number of points in u-Dimension";
           input Integer nv "Number of points in v-Dimension";
           input Boolean multiColoredSurface = false "= true: Color is defined for each surface point";
-          output SI.Position[nu, nv] X "[nu,nv] positions of points in x-Direction resolved in surface frame";
-          output SI.Position[nu, nv] Y "[nu,nv] positions of points in y-Direction resolved in surface frame";
-          output SI.Position[nu, nv] Z "[nu,nv] positions of points in z-Direction resolved in surface frame";
-          output Real[if multiColoredSurface then nu else 0, if multiColoredSurface then nv else 0, 3] C "[nu,nv,3] Color array, defining the color for each surface point";
+          output SI.Position X[nu, nv] "[nu,nv] positions of points in x-Direction resolved in surface frame";
+          output SI.Position Y[nu, nv] "[nu,nv] positions of points in y-Direction resolved in surface frame";
+          output SI.Position Z[nu, nv] "[nu,nv] positions of points in z-Direction resolved in surface frame";
+          output Real C[if multiColoredSurface then nu else 0, if multiColoredSurface then nv else 0, 3] "[nu,nv,3] Color array, defining the color for each surface point";
         end partialSurfaceCharacteristic;
       end Interfaces;
 
@@ -2273,7 +2306,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           input Types.Color boxColor = Modelica.Mechanics.MultiBody.Types.Defaults.JointColor "Color of prismatic joint box";
           input Types.SpecularCoefficient specularCoefficient = world.defaultSpecularCoefficient "Reflection of ambient light (= 0: light is completely absorbed)";
           parameter StateSelect stateSelect = StateSelect.prefer "Priority to use distance s and v=der(s) as states";
-          final parameter Real[3] e(each final unit = "1") = Modelica.Math.Vectors.normalizeWithAssert(n) "Unit vector in direction of prismatic axis n";
+          final parameter Real e[3](each final unit = "1") = Modelica.Math.Vectors.normalizeWithAssert(n) "Unit vector in direction of prismatic axis n";
           SI.Position s(start = 0, final stateSelect = stateSelect) "Relative distance between frame_a and frame_b" annotation(unassignedMessage = "
         The relative distance s of a prismatic joint cannot be determined.
         Possible reasons:
@@ -2294,11 +2327,11 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         equation
           v = der(s);
           a = der(v);
-          frame_b.r_0 = frame_a.r_0 + Frames.resolve1(frame_a.R, e * s);
+          frame_b.r_0 = frame_a.r_0 + Frames.resolve1(frame_a.R, e*s);
           frame_b.R = frame_a.R;
           zeros(3) = frame_a.f + frame_b.f;
-          zeros(3) = frame_a.t + frame_b.t + cross(e * s, frame_b.f);
-          f = -e * frame_b.f;
+          zeros(3) = frame_a.t + frame_b.t + cross(e*s, frame_b.f);
+          f = -e*frame_b.f;
           s = internalAxis.s;
           connect(fixed.flange, support);
           connect(internalAxis.flange, axis);
@@ -2315,13 +2348,13 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           Interfaces.Frame_a frame_a "Coordinate system fixed to the component with one cut-force and cut-torque";
           Interfaces.Frame_b frame_b "Coordinate system fixed to the component with one cut-force and cut-torque";
           parameter Boolean animation = true "= true, if animation shall be enabled";
-          parameter SI.Position[3] r(start = {0, 0, 0}) "Vector from frame_a to frame_b resolved in frame_a";
+          parameter SI.Position r[3](start = {0, 0, 0}) "Vector from frame_a to frame_b resolved in frame_a";
           parameter Types.ShapeType shapeType = "cylinder" "Type of shape";
-          parameter SI.Position[3] r_shape = {0, 0, 0} "Vector from frame_a to shape origin, resolved in frame_a";
+          parameter SI.Position r_shape[3] = {0, 0, 0} "Vector from frame_a to shape origin, resolved in frame_a";
           parameter Types.Axis lengthDirection = to_unit1(r - r_shape) "Vector in length direction of shape, resolved in frame_a" annotation(Evaluate = true);
           parameter Types.Axis widthDirection = {0, 1, 0} "Vector in width direction of shape, resolved in frame_a" annotation(Evaluate = true);
           parameter SI.Length length = Modelica.Math.Vectors.length(r - r_shape) "Length of shape";
-          parameter SI.Distance width = length / world.defaultWidthFraction "Width of shape";
+          parameter SI.Distance width = length/world.defaultWidthFraction "Width of shape";
           parameter SI.Distance height = width "Height of shape";
           parameter Types.ShapeExtra extra = 0.0 "Additional parameter depending on shapeType (see docu of Visualizers.Advanced.Shape)";
           input Types.Color color = Modelica.Mechanics.MultiBody.Types.Defaults.RodColor "Color of shape";
@@ -2364,8 +2397,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
               input SI.Distance lu = 1 "Length in direction u";
               input SI.Distance lv = 3 "Length in direction v";
             algorithm
-              X[:, :] := lu / 2 * transpose(fill(linspace(-1, 1, nu), nv));
-              Y[:, :] := lv / 2 * fill(linspace(-1, 1, nv), nu);
+              X[:, :] := lu/2*transpose(fill(linspace(-1, 1, nu), nv));
+              Y[:, :] := lv/2*fill(linspace(-1, 1, nv), nu);
               Z[:, :] := fill(0, nu, nv);
             end rectangle;
           end SurfaceCharacteristics;
@@ -2380,11 +2413,11 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             import Modelica.Mechanics.MultiBody.Frames;
             import T = Modelica.Mechanics.MultiBody.Frames.TransformationMatrices;
             input Modelica.Mechanics.MultiBody.Frames.Orientation R = Frames.nullRotation() "Orientation object to rotate the world frame into the object frame";
-            input SI.Position[3] r = {0, 0, 0} "Position vector from origin of world frame to origin of object frame, resolved in world frame";
-            input SI.Position[3] r_lines = {0, 0, 0} "Position vector from origin of object frame to the origin of 'lines' frame, resolved in object frame";
-            input Real[3] n_x(each final unit = "1") = {1, 0, 0} "Vector in direction of x-axis of 'lines' frame, resolved in object frame";
-            input Real[3] n_y(each final unit = "1") = {0, 1, 0} "Vector in direction of y-axis of 'lines' frame, resolved in object frame";
-            input SI.Position[:, 2, 2] lines = zeros(0, 2, 2) "List of start and end points of cylinders resolved in an x-y frame defined by n_x, n_y, e.g., {[0,0;1,1], [0,1;1,0], [2,0; 3,1]}";
+            input SI.Position r[3] = {0, 0, 0} "Position vector from origin of world frame to origin of object frame, resolved in world frame";
+            input SI.Position r_lines[3] = {0, 0, 0} "Position vector from origin of object frame to the origin of 'lines' frame, resolved in object frame";
+            input Real n_x[3](each final unit = "1") = {1, 0, 0} "Vector in direction of x-axis of 'lines' frame, resolved in object frame";
+            input Real n_y[3](each final unit = "1") = {0, 1, 0} "Vector in direction of y-axis of 'lines' frame, resolved in object frame";
+            input SI.Position lines[:, 2, 2] = zeros(0, 2, 2) "List of start and end points of cylinders resolved in an x-y frame defined by n_x, n_y, e.g., {[0,0;1,1], [0,1;1,0], [2,0; 3,1]}";
             input SI.Length diameter(min = 0) = 0.05 "Diameter of the cylinders defined by lines";
             input Modelica.Mechanics.MultiBody.Types.Color color = {0, 128, 255} "Color of cylinders";
             input Types.SpecularCoefficient specularCoefficient = 0.7 "Reflection of ambient light (= 0: light is completely absorbed)";
@@ -2392,8 +2425,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             parameter Integer n = size(lines, 1) "Number of cylinders";
             T.Orientation R_rel = T.from_nxy(n_x, n_y);
             T.Orientation R_lines = T.absoluteRotation(R.T, R_rel);
-            SI.Position[3] r_abs = r + T.resolve1(R.T, r_lines);
-            Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape[n] cylinders(each shapeType = "cylinder", lengthDirection = {T.resolve1(R_rel, vector([lines[i, 2, :] - lines[i, 1, :]; 0])) for i in 1:n}, length = {Modelica.Math.Vectors.length(lines[i, 2, :] - lines[i, 1, :]) for i in 1:n}, r = {r_abs + T.resolve1(R_lines, vector([lines[i, 1, :]; 0])) for i in 1:n}, each width = diameter, each height = diameter, each widthDirection = {0, 1, 0}, each color = color, each R = R, each specularCoefficient = specularCoefficient);
+            SI.Position r_abs[3] = r + T.resolve1(R.T, r_lines);
+            Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape cylinders[n](each shapeType = "cylinder", lengthDirection = {T.resolve1(R_rel, vector([lines[i, 2, :] - lines[i, 1, :]; 0])) for i in 1:n}, length = {Modelica.Math.Vectors.length(lines[i, 2, :] - lines[i, 1, :]) for i in 1:n}, r = {r_abs + T.resolve1(R_lines, vector([lines[i, 1, :]; 0])) for i in 1:n}, each width = diameter, each height = diameter, each widthDirection = {0, 1, 0}, each color = color, each R = R, each specularCoefficient = specularCoefficient);
           end Lines;
         end Internal;
       end Visualizers;
@@ -2453,7 +2486,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           SI.Acceleration a(start = 0) "If exact=false, absolute acceleration of flange else dummy";
           Modelica.Blocks.Interfaces.RealInput s_ref(unit = "m") "Reference position of flange as input signal";
         protected
-          parameter SI.AngularFrequency w_crit = 2 * Modelica.Constants.pi * f_crit "Critical frequency";
+          parameter SI.AngularFrequency w_crit = 2*Modelica.Constants.pi*f_crit "Critical frequency";
           constant Real af = 1.3617 "s coefficient of Bessel filter";
           constant Real bf = 0.6180 "s*s coefficient of Bessel filter";
         initial equation
@@ -2468,7 +2501,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           else
             v = der(s);
             a = der(v);
-            a = ((s_ref - s) * w_crit - af * v) * (w_crit / bf);
+            a = ((s_ref - s)*w_crit - af*v)*(w_crit/bf);
           end if;
         end Position;
 
@@ -2541,31 +2574,31 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
 
       function length "Return length of a vector (better as norm(), if further symbolic processing is performed)"
         extends Modelica.Icons.Function;
-        input Real[:] v "Real vector";
+        input Real v[:] "Real vector";
         output Real result "Length of vector v";
       algorithm
-        result := sqrt(v * v);
+        result := sqrt(v*v);
         annotation(Inline = true);
       end length;
 
       function normalize "Return normalized vector such that length = 1 and prevent zero-division for zero vector"
         extends Modelica.Icons.Function;
-        input Real[:] v "Real vector";
-        input Real eps(min = 0.0) = 100 * Modelica.Constants.eps "if |v| < eps then result = v/eps";
-        output Real[size(v, 1)] result "Input vector v normalized to length=1";
+        input Real v[:] "Real vector";
+        input Real eps(min = 0.0) = 100*Modelica.Constants.eps "if |v| < eps then result = v/eps";
+        output Real result[size(v, 1)] "Input vector v normalized to length=1";
       algorithm
-        result := smooth(0, if length(v) >= eps then v / length(v) else v / eps);
+        result := smooth(0, if length(v) >= eps then v/length(v) else v/eps);
         annotation(Inline = true);
       end normalize;
 
       function normalizeWithAssert "Return normalized vector such that length = 1 (trigger an assert for zero vector)"
         import Modelica.Math.Vectors.length;
         extends Modelica.Icons.Function;
-        input Real[:] v "Real vector";
-        output Real[size(v, 1)] result "Input vector v normalized to length=1";
+        input Real v[:] "Real vector";
+        output Real result[size(v, 1)] "Input vector v normalized to length=1";
       algorithm
         assert(length(v) > 0.0, "Vector v={0,0,0} shall be normalized (= v/sqrt(v*v)), but this results in a division by zero.\nProvide a non-zero vector!");
-        result := v / length(v);
+        result := v/length(v);
         annotation(Inline = true);
       end normalizeWithAssert;
     end Vectors;
@@ -2584,7 +2617,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             extends Modelica.Icons.Function;
             input Integer localSeed "The local seed to be used for generating initial states";
             input Integer globalSeed "The global seed to be combined with the local seed";
-            output Integer[nState] state "The generated initial states";
+            output Integer state[nState] "The generated initial states";
           protected
             Real r "Random number not used outside the function";
             constant Integer p = 10 "The number of iterations to use";
@@ -2599,11 +2632,11 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             end for;
           end initialState;
 
-          function random "Returns a uniform random number with the xorshift64* algorithm"
+          pure function random "Returns a uniform random number with the xorshift64* algorithm"
             extends Modelica.Icons.Function;
-            input Integer[nState] stateIn "The internal states for the random number generator";
+            input Integer stateIn[nState] "The internal states for the random number generator";
             output Real result "A random number with a uniform distribution on the interval (0,1]";
-            output Integer[nState] stateOut "The new internal states of the random number generator";
+            output Integer stateOut[nState] "The new internal states of the random number generator";
             external "C" ModelicaRandom_xorshift64star(stateIn, stateOut, result) annotation(IncludeDirectory = "modelica://Modelica/Resources/C-Sources", Library = "ModelicaExternalC");
           end random;
         end Xorshift64star;
@@ -2616,17 +2649,17 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             extends Modelica.Icons.Function;
             input Integer localSeed "The local seed to be used for generating initial states";
             input Integer globalSeed "The global seed to be combined with the local seed";
-            output Integer[nState] state "The generated initial states";
+            output Integer state[nState] "The generated initial states";
           algorithm
             state := Utilities.initialStateWithXorshift64star(localSeed, globalSeed, size(state, 1));
             annotation(Inline = true);
           end initialState;
 
-          function random "Returns a uniform random number with the xorshift128+ algorithm"
+          pure function random "Returns a uniform random number with the xorshift128+ algorithm"
             extends Modelica.Icons.Function;
-            input Integer[nState] stateIn "The internal states for the random number generator";
+            input Integer stateIn[nState] "The internal states for the random number generator";
             output Real result "A random number with a uniform distribution on the interval (0,1]";
-            output Integer[nState] stateOut "The new internal states of the random number generator";
+            output Integer stateOut[nState] "The new internal states of the random number generator";
             external "C" ModelicaRandom_xorshift128plus(stateIn, stateOut, result) annotation(IncludeDirectory = "modelica://Modelica/Resources/C-Sources", Library = "ModelicaExternalC");
           end random;
         end Xorshift128plus;
@@ -2641,10 +2674,10 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           input Integer localSeed "The local seed to be used for generating initial states";
           input Integer globalSeed "The global seed to be combined with the local seed";
           input Integer nState(min = 1) "The dimension of the state vector (>= 1)";
-          output Integer[nState] state "The generated initial states";
+          output Integer state[nState] "The generated initial states";
         protected
           Real r "Random number only used inside function";
-          Integer[2] aux "Intermediate container of state integers";
+          Integer aux[2] "Intermediate container of state integers";
           Integer nStateEven "Highest even number <= nState";
         algorithm
           aux := Xorshift64star.initialState(localSeed, globalSeed);
@@ -2653,7 +2686,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           else
             state[1] := aux[1];
           end if;
-          nStateEven := 2 * div(nState, 2);
+          nStateEven := 2*div(nState, 2);
           for i in 3:2:nStateEven loop
             (r, aux) := Xorshift64star.random(state[i - 2:i - 1]);
             state[i:i + 1] := aux;
@@ -2685,11 +2718,11 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           output Integer id "Identification number to be passed as input to function impureRandom, in order that sorting is correct";
         protected
           constant Integer localSeed = 715827883 "Since there is no local seed, a large prime number is used";
-          Integer[33] rngState "The internal state vector of the impure random number generator";
+          Integer rngState[33] "The internal state vector of the impure random number generator";
 
           impure function setInternalState "Stores the given state vector in an external static variable"
             extends Modelica.Icons.Function;
-            input Integer[33] rngState "The initial state";
+            input Integer rngState[33] "The initial state";
             input Integer id;
             external "C" ModelicaRandom_setInternalState_xorshift1024star(rngState, size(rngState, 1), id) annotation(IncludeDirectory = "modelica://Modelica/Resources/C-Sources", Library = "ModelicaExternalC");
           end setInternalState;
@@ -2713,7 +2746,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           input Real mu = 0 "Expectation (mean) value of the normal distribution";
           input Real sigma = 1 "Standard deviation of the normal distribution";
         algorithm
-          y := mu + sigma * sqrt(2) * Special.erfInv(2 * u - 1);
+          y := mu + sigma*sqrt(2)*Special.erfInv(2*u - 1);
           annotation(Inline = true);
         end quantile;
       end Normal;
@@ -2739,7 +2772,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
       algorithm
         if u >= 1 then
           y := Modelica.Constants.inf;
-        elseif u <= (-1) then
+        elseif u <= -1 then
           y := -Modelica.Constants.inf;
         elseif u == 0 then
           y := 0;
@@ -2756,13 +2789,13 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
 
         function polyEval "Evaluate a polynomial c[1] + c[2]*u + c[3]*u^2 + ...."
           extends Modelica.Icons.Function;
-          input Real[:] c "Polynomial coefficients";
+          input Real c[:] "Polynomial coefficients";
           input Real u "Abscissa value";
           output Real y "= c[1] + u*(c[2] + u*(c[3] + u*(c[4]*u^3 + ...)))";
         algorithm
           y := c[size(c, 1)];
-          for j in size(c, 1) - 1:(-1):1 loop
-            y := c[j] + u * y;
+          for j in size(c, 1) - 1:-1:1 loop
+            y := c[j] + u*y;
           end for;
         end polyEval;
 
@@ -2777,58 +2810,58 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           Real xs;
           Real x;
           constant Real y1 = 0.0891314744949340820313;
-          constant Real[8] P1 = {-0.000508781949658280665617, -0.00836874819741736770379, 0.0334806625409744615033, -0.0126926147662974029034, -0.0365637971411762664006, 0.0219878681111168899165, 0.00822687874676915743155, -0.00538772965071242932965};
-          constant Real[10] Q1 = {1.0, -0.970005043303290640362, -1.56574558234175846809, 1.56221558398423026363, 0.662328840472002992063, -0.71228902341542847553, -0.0527396382340099713954, 0.0795283687341571680018, -0.00233393759374190016776, 0.000886216390456424707504};
+          constant Real P1[8] = {-0.000508781949658280665617, -0.00836874819741736770379, 0.0334806625409744615033, -0.0126926147662974029034, -0.0365637971411762664006, 0.0219878681111168899165, 0.00822687874676915743155, -0.00538772965071242932965};
+          constant Real Q1[10] = {1.0, -0.970005043303290640362, -1.56574558234175846809, 1.56221558398423026363, 0.662328840472002992063, -0.71228902341542847553, -0.0527396382340099713954, 0.0795283687341571680018, -0.00233393759374190016776, 0.000886216390456424707504};
           constant Real y2 = 2.249481201171875;
-          constant Real[9] P2 = {-0.202433508355938759655, 0.105264680699391713268, 8.37050328343119927838, 17.6447298408374015486, -18.8510648058714251895, -44.6382324441786960818, 17.445385985570866523, 21.1294655448340526258, -3.67192254707729348546};
-          constant Real[9] Q2 = {1.0, 6.24264124854247537712, 3.9713437953343869095, -28.6608180499800029974, -20.1432634680485188801, 48.5609213108739935468, 10.8268667355460159008, -22.6436933413139721736, 1.72114765761200282724};
+          constant Real P2[9] = {-0.202433508355938759655, 0.105264680699391713268, 8.37050328343119927838, 17.6447298408374015486, -18.8510648058714251895, -44.6382324441786960818, 17.445385985570866523, 21.1294655448340526258, -3.67192254707729348546};
+          constant Real Q2[9] = {1.0, 6.24264124854247537712, 3.9713437953343869095, -28.6608180499800029974, -20.1432634680485188801, 48.5609213108739935468, 10.8268667355460159008, -22.6436933413139721736, 1.72114765761200282724};
           constant Real y3 = 0.807220458984375;
-          constant Real[11] P3 = {-0.131102781679951906451, -0.163794047193317060787, 0.117030156341995252019, 0.387079738972604337464, 0.337785538912035898924, 0.142869534408157156766, 0.0290157910005329060432, 0.00214558995388805277169, -0.679465575181126350155e-6, 0.285225331782217055858e-7, -0.681149956853776992068e-9};
-          constant Real[8] Q3 = {1.0, 3.46625407242567245975, 5.38168345707006855425, 4.77846592945843778382, 2.59301921623620271374, 0.848854343457902036425, 0.152264338295331783612, 0.01105924229346489121};
+          constant Real P3[11] = {-0.131102781679951906451, -0.163794047193317060787, 0.117030156341995252019, 0.387079738972604337464, 0.337785538912035898924, 0.142869534408157156766, 0.0290157910005329060432, 0.00214558995388805277169, -0.679465575181126350155e-6, 0.285225331782217055858e-7, -0.681149956853776992068e-9};
+          constant Real Q3[8] = {1.0, 3.46625407242567245975, 5.38168345707006855425, 4.77846592945843778382, 2.59301921623620271374, 0.848854343457902036425, 0.152264338295331783612, 0.01105924229346489121};
           constant Real y4 = 0.93995571136474609375;
-          constant Real[9] P4 = {-0.0350353787183177984712, -0.00222426529213447927281, 0.0185573306514231072324, 0.00950804701325919603619, 0.00187123492819559223345, 0.000157544617424960554631, 0.460469890584317994083e-5, -0.230404776911882601748e-9, 0.266339227425782031962e-11};
-          constant Real[7] Q4 = {1.0, 1.3653349817554063097, 0.762059164553623404043, 0.220091105764131249824, 0.0341589143670947727934, 0.00263861676657015992959, 0.764675292302794483503e-4};
+          constant Real P4[9] = {-0.0350353787183177984712, -0.00222426529213447927281, 0.0185573306514231072324, 0.00950804701325919603619, 0.00187123492819559223345, 0.000157544617424960554631, 0.460469890584317994083e-5, -0.230404776911882601748e-9, 0.266339227425782031962e-11};
+          constant Real Q4[7] = {1.0, 1.3653349817554063097, 0.762059164553623404043, 0.220091105764131249824, 0.0341589143670947727934, 0.00263861676657015992959, 0.764675292302794483503e-4};
           constant Real y5 = 0.98362827301025390625;
-          constant Real[9] P5 = {-0.0167431005076633737133, -0.00112951438745580278863, 0.00105628862152492910091, 0.000209386317487588078668, 0.149624783758342370182e-4, 0.449696789927706453732e-6, 0.462596163522878599135e-8, -0.281128735628831791805e-13, 0.99055709973310326855e-16};
-          constant Real[7] Q5 = {1.0, 0.591429344886417493481, 0.138151865749083321638, 0.0160746087093676504695, 0.000964011807005165528527, 0.275335474764726041141e-4, 0.282243172016108031869e-6};
+          constant Real P5[9] = {-0.0167431005076633737133, -0.00112951438745580278863, 0.00105628862152492910091, 0.000209386317487588078668, 0.149624783758342370182e-4, 0.449696789927706453732e-6, 0.462596163522878599135e-8, -0.281128735628831791805e-13, 0.99055709973310326855e-16};
+          constant Real Q5[7] = {1.0, 0.591429344886417493481, 0.138151865749083321638, 0.0160746087093676504695, 0.000964011807005165528527, 0.275335474764726041141e-4, 0.282243172016108031869e-6};
           constant Real y6 = 0.99714565277099609375;
-          constant Real[8] P6 = {-0.0024978212791898131227, -0.779190719229053954292e-5, 0.254723037413027451751e-4, 0.162397777342510920873e-5, 0.396341011304801168516e-7, 0.411632831190944208473e-9, 0.145596286718675035587e-11, -0.116765012397184275695e-17};
-          constant Real[7] Q6 = {1.0, 0.207123112214422517181, 0.0169410838120975906478, 0.000690538265622684595676, 0.145007359818232637924e-4, 0.144437756628144157666e-6, 0.509761276599778486139e-9};
+          constant Real P6[8] = {-0.0024978212791898131227, -0.779190719229053954292e-5, 0.254723037413027451751e-4, 0.162397777342510920873e-5, 0.396341011304801168516e-7, 0.411632831190944208473e-9, 0.145596286718675035587e-11, -0.116765012397184275695e-17};
+          constant Real Q6[7] = {1.0, 0.207123112214422517181, 0.0169410838120975906478, 0.000690538265622684595676, 0.145007359818232637924e-4, 0.144437756628144157666e-6, 0.509761276599778486139e-9};
           constant Real y7 = 0.99941349029541015625;
-          constant Real[8] P7 = {-0.000539042911019078575891, -0.28398759004727721098e-6, 0.899465114892291446442e-6, 0.229345859265920864296e-7, 0.225561444863500149219e-9, 0.947846627503022684216e-12, 0.135880130108924861008e-14, -0.348890393399948882918e-21};
-          constant Real[7] Q7 = {1.0, 0.0845746234001899436914, 0.00282092984726264681981, 0.468292921940894236786e-4, 0.399968812193862100054e-6, 0.161809290887904476097e-8, 0.231558608310259605225e-11};
+          constant Real P7[8] = {-0.000539042911019078575891, -0.28398759004727721098e-6, 0.899465114892291446442e-6, 0.229345859265920864296e-7, 0.225561444863500149219e-9, 0.947846627503022684216e-12, 0.135880130108924861008e-14, -0.348890393399948882918e-21};
+          constant Real Q7[7] = {1.0, 0.0845746234001899436914, 0.00282092984726264681981, 0.468292921940894236786e-4, 0.399968812193862100054e-6, 0.161809290887904476097e-8, 0.231558608310259605225e-11};
         algorithm
           if p <= 0.5 then
-            g := p * (p + 10);
-            r := polyEval(P1, p) / polyEval(Q1, p);
-            y := g * y1 + g * r;
+            g := p*(p + 10);
+            r := polyEval(P1, p)/polyEval(Q1, p);
+            y := g*y1 + g*r;
           elseif q >= 0.25 then
-            g := sqrt(-2 * log(q));
+            g := sqrt(-2*log(q));
             xs := q - 0.25;
-            r := polyEval(P2, xs) / polyEval(Q2, xs);
-            y := g / (y2 + r);
+            r := polyEval(P2, xs)/polyEval(Q2, xs);
+            y := g/(y2 + r);
           else
             x := sqrt(-log(q));
             if x < 3 then
               xs := x - 1.125;
-              r := polyEval(P3, xs) / polyEval(Q3, xs);
-              y := y3 * x + r * x;
+              r := polyEval(P3, xs)/polyEval(Q3, xs);
+              y := y3*x + r*x;
             elseif x < 6 then
               xs := x - 3;
-              r := polyEval(P4, xs) / polyEval(Q4, xs);
-              y := y4 * x + r * x;
+              r := polyEval(P4, xs)/polyEval(Q4, xs);
+              y := y4*x + r*x;
             elseif x < 18 then
               xs := x - 6;
-              r := polyEval(P5, xs) / polyEval(Q5, xs);
-              y := y5 * x + r * x;
+              r := polyEval(P5, xs)/polyEval(Q5, xs);
+              y := y5*x + r*x;
             elseif x < 44 then
               xs := x - 18;
-              r := polyEval(P6, xs) / polyEval(Q6, xs);
-              y := y6 * x + r * x;
+              r := polyEval(P6, xs)/polyEval(Q6, xs);
+              y := y6*x + r*x;
             else
               xs := x - 44;
-              r := polyEval(P7, xs) / polyEval(Q7, xs);
-              y := y7 * x + r * x;
+              r := polyEval(P7, xs)/polyEval(Q7, xs);
+              y := y7*x + r*x;
             end if;
           end if;
         end erfInvUtil;
@@ -2877,7 +2910,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
       input Real u "Independent variable";
       output Real y "Dependent variable y=asinh(u)";
     algorithm
-      y := Modelica.Math.log(u + sqrt(u * u + 1));
+      y := Modelica.Math.log(u + sqrt(u*u + 1));
     end asinh;
 
     function exp "Exponential, base e"
@@ -2901,7 +2934,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
     package Streams "Read from files and write to files"
       extends Modelica.Icons.FunctionsPackage;
 
-      function error "Print error message and cancel all actions - in case of an unrecoverable error"
+      pure function error "Print error message and cancel all actions - in case of an unrecoverable error"
         extends Modelica.Icons.Function;
         input String string "String to be printed to error message window";
         external "C" ModelicaError(string) annotation(IncludeDirectory = "modelica://Modelica/Resources/C-Sources", Include = "#include \"ModelicaUtilities.h\"", Library = "ModelicaExternalC");
@@ -2911,7 +2944,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
     package Strings "Operations on strings"
       extends Modelica.Icons.FunctionsPackage;
 
-      function hashString "Create a hash value of a string"
+      pure function hashString "Create a hash value of a string"
         extends Modelica.Icons.Function;
         input String string "The string to create a hash from";
         output Integer hash "The hash value of string";
@@ -2934,15 +2967,15 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             import Modelica.Mechanics.MultiBody.Types;
             parameter Types.ShapeType shapeType = "box" "Type of shape (box, sphere, cylinder, pipecylinder, cone, pipe, beam, gearwheel, spring, <external shape>)";
             input Frames.Orientation R = Frames.nullRotation() "Orientation object to rotate the world frame into the object frame";
-            input SI.Position[3] r = {0, 0, 0} "Position vector from origin of world frame to origin of object frame, resolved in world frame";
-            input SI.Position[3] r_shape = {0, 0, 0} "Position vector from origin of object frame to shape origin, resolved in object frame";
-            input Real[3] lengthDirection(each final unit = "1") = {1, 0, 0} "Vector in length direction, resolved in object frame";
-            input Real[3] widthDirection(each final unit = "1") = {0, 1, 0} "Vector in width direction, resolved in object frame";
+            input SI.Position r[3] = {0, 0, 0} "Position vector from origin of world frame to origin of object frame, resolved in world frame";
+            input SI.Position r_shape[3] = {0, 0, 0} "Position vector from origin of object frame to shape origin, resolved in object frame";
+            input Real lengthDirection[3](each final unit = "1") = {1, 0, 0} "Vector in length direction, resolved in object frame";
+            input Real widthDirection[3](each final unit = "1") = {0, 1, 0} "Vector in width direction, resolved in object frame";
             input SI.Length length = 0 "Length of visual object";
             input SI.Length width = 0 "Width of visual object";
             input SI.Length height = 0 "Height of visual object";
             input Types.ShapeExtra extra = 0.0 "Additional size data for some of the shape types";
-            input Real[3] color = {255, 0, 0} "Color of shape";
+            input Real color[3] = {255, 0, 0} "Color of shape";
             input Types.SpecularCoefficient specularCoefficient = 0.7 "Reflection of ambient light (= 0: light is completely absorbed)";
           end PartialShape;
 
@@ -2950,13 +2983,13 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             import Modelica.Mechanics.MultiBody.Frames;
             import Modelica.Mechanics.MultiBody.Types;
             input Frames.Orientation R = Frames.nullRotation() "Orientation object to rotate the world frame into the surface frame";
-            input SI.Position[3] r_0 = {0, 0, 0} "Position vector from origin of world frame to origin of surface frame, resolved in world frame";
+            input SI.Position r_0[3] = {0, 0, 0} "Position vector from origin of world frame to origin of surface frame, resolved in world frame";
             parameter Integer nu = 2 "Number of points in u-Dimension";
             parameter Integer nv = 2 "Number of points in v-Dimension";
             replaceable function surfaceCharacteristic = Modelica.Mechanics.MultiBody.Interfaces.partialSurfaceCharacteristic "Function defining the surface characteristic" annotation(choicesAllMatching = true);
             parameter Boolean wireframe = false "= true: 3D model will be displayed without faces";
             parameter Boolean multiColoredSurface = false "= true: Color is defined for each surface point";
-            input Real[3] color = {255, 0, 0} "Color of surface";
+            input Real color[3] = {255, 0, 0} "Color of surface";
             input Types.SpecularCoefficient specularCoefficient = 0.7 "Reflection of ambient light (= 0: light is completely absorbed)";
             input Real transparency = 0 "Transparency of shape: 0 (= opaque) ... 1 (= fully transparent)";
           end PartialSurface;
@@ -2969,7 +3002,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
     extends Modelica.Icons.Package;
     import Modelica.Units.SI;
     import Modelica.Units.NonSI;
-    final constant Real pi = 2 * Modelica.Math.asin(1.0);
+    final constant Real pi = 2*Modelica.Math.asin(1.0);
     final constant Real eps = ModelicaServices.Machine.eps "Biggest number such that 1.0 + eps = 1.0";
     final constant Real inf = ModelicaServices.Machine.inf "Biggest Real number such that inf and -inf are representable on the machine";
     final constant SI.Velocity c = 299792458 "Speed of light in vacuum";
@@ -2978,7 +3011,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
     final constant Real h(final unit = "J.s") = 6.62607015e-34 "Planck constant";
     final constant Real k(final unit = "J/K") = 1.380649e-23 "Boltzmann constant";
     final constant Real N_A(final unit = "1/mol") = 6.02214076e23 "Avogadro constant";
-    final constant Real mu_0(final unit = "N/A2") = 4 * pi * 1.00000000055e-7 "Magnetic constant";
+    final constant Real mu_0(final unit = "N/A2") = 4*pi*1.00000000055e-7 "Magnetic constant";
   end Constants;
 
   package Icons "Library of icons"
@@ -3078,39 +3111,6 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
   end Units;
   annotation(version = "4.0.0", versionDate = "2020-06-04", dateModified = "2020-06-04 11:00:00Z");
 end Modelica;
-
-package SuspensionSystem
-  import SI = Modelica.Units.SI;
-
-  package Components
-    model RoadProfile
-      parameter Real roadRoughness = 3 "Road height StdDeviation in cm";
-      Modelica.Mechanics.MultiBody.Joints.Prismatic Road(animation = true, boxColor = {140, 140, 140}, boxHeight = 1, boxWidth = 0.3, n = {0, 1, 0}, s(start = 0.5), useAxisFlange = true);
-      Modelica.Mechanics.Translational.Sources.Position position(a(fixed = false), exact = false, v(fixed = false));
-      Modelica.Mechanics.MultiBody.Interfaces.Frame_b zR;
-      Modelica.Blocks.Continuous.Filter LPF(f_cut = 1, filterType = Modelica.Blocks.Types.FilterType.LowPass, gain = roadRoughness, order = 2);
-      Modelica.Blocks.Noise.NormalNoise normalNoise(enableNoise = true, mu = 0, samplePeriod = 0.01, sigma = 0.05, startTime = 0.1, useAutomaticLocalSeed = false, useGlobalSeed = false);
-      Modelica.Mechanics.MultiBody.Interfaces.Frame_a world_a;
-      Modelica.Mechanics.MultiBody.Parts.FixedTranslation y(r = {0, -0.5, 0});
-      Modelica.Blocks.Interfaces.RealInput RoadRoughness;
-      Modelica.Blocks.Math.Product product;
-      Modelica.Blocks.Math.Add add;
-      Modelica.Blocks.Sources.RealExpression offset(y = 0.5);
-    equation
-      connect(position.support, Road.support);
-      connect(position.flange, Road.axis);
-      connect(zR, Road.frame_b);
-      connect(normalNoise.y, LPF.u);
-      connect(world_a, y.frame_a);
-      connect(y.frame_b, Road.frame_a);
-      connect(LPF.y, product.u1);
-      connect(RoadRoughness, product.u2);
-      connect(add.y, position.s_ref);
-      connect(product.y, add.u1);
-      connect(offset.y, add.u2);
-    end RoadProfile;
-  end Components;
-end SuspensionSystem;
 
 model RoadProfile_total
   extends SuspensionSystem.Components.RoadProfile;

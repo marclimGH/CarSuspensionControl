@@ -1,3 +1,28 @@
+package SuspensionSystem
+  import SI = Modelica.Units.SI;
+
+  package Components
+    model Wheel
+      parameter SI.Mass mT = 50 "suspended mass (Tyre)";
+      parameter SI.TranslationalSpringConstant kT = 250000;
+      parameter Modelica.Units.SI.Length wr = 0.35 "wheel radius";
+      Modelica.Mechanics.MultiBody.Interfaces.Frame_a zR;
+      Modelica.Mechanics.MultiBody.Parts.BodyShape WheelMass(animateSphere = false, color = {70, 70, 70}, height = 0.3, length = wr*0.4, lengthDirection = {0, 0, 1}, m = mT, r = {0, wr*0.65, 0}, r_0(start = {0, wr, 0}), r_CM = {0, wr*0.65, 0}, r_shape = {0, wr*0.65, 0}, width = wr*2);
+      Modelica.Mechanics.MultiBody.Joints.Prismatic TyreElasticity(animation = false, boxColor = {50, 255, 50}, boxHeight = 0.3, n = {0, 1, 0}, s(start = wr/5), useAxisFlange = true);
+      Modelica.Mechanics.Translational.Components.Spring TyreSpring(c = kT, s_rel(fixed = true, start = wr*0.28), s_rel0 = wr*0.35);
+      Modelica.Mechanics.MultiBody.Parts.BodyCylinder clip(diameter = 0.05, innerDiameter = 0.03, r = {0, 0.1, -0.1});
+      Modelica.Mechanics.MultiBody.Interfaces.Frame_b zT;
+    equation
+      connect(TyreElasticity.frame_a, zR);
+      connect(TyreElasticity.frame_b, WheelMass.frame_a);
+      connect(TyreElasticity.support, TyreSpring.flange_a);
+      connect(TyreSpring.flange_b, TyreElasticity.axis);
+      connect(clip.frame_b, zT);
+      connect(clip.frame_a, WheelMass.frame_b);
+    end Wheel;
+  end Components;
+end SuspensionSystem;
+
 package ModelicaServices "ModelicaServices (OpenModelica implementation) - Models and functions used in the Modelica Standard Library requiring a tool specific implementation"
   extends Modelica.Icons.Package;
 
@@ -51,15 +76,15 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         parameter Types.Axis n = {0, -1, 0} "Direction of gravity resolved in world frame (gravity = g*n/length(n))" annotation(Evaluate = true);
         parameter Real mu(unit = "m3/s2", min = 0) = 3.986004418e14 "Gravity field constant (default = field constant of earth)";
         parameter Boolean driveTrainMechanics3D = true "= true, if 3-dim. mechanical effects of Parts.Mounting1D/Rotor1D/BevelGear1D shall be taken into account";
-        parameter SI.Distance axisLength = nominalLength / 2 "Length of world axes arrows";
-        parameter SI.Distance axisDiameter = axisLength / defaultFrameDiameterFraction "Diameter of world axes arrows";
+        parameter SI.Distance axisLength = nominalLength/2 "Length of world axes arrows";
+        parameter SI.Distance axisDiameter = axisLength/defaultFrameDiameterFraction "Diameter of world axes arrows";
         parameter Boolean axisShowLabels = true "= true, if labels shall be shown";
         input Types.Color axisColor_x = Modelica.Mechanics.MultiBody.Types.Defaults.FrameColor "Color of x-arrow";
         input Types.Color axisColor_y = axisColor_x;
         input Types.Color axisColor_z = axisColor_x "Color of z-arrow";
-        parameter SI.Position[3] gravityArrowTail = {0, 0, 0} "Position vector from origin of world frame to arrow tail, resolved in world frame";
-        parameter SI.Length gravityArrowLength = axisLength / 2 "Length of gravity arrow";
-        parameter SI.Diameter gravityArrowDiameter = gravityArrowLength / defaultWidthFraction "Diameter of gravity arrow";
+        parameter SI.Position gravityArrowTail[3] = {0, 0, 0} "Position vector from origin of world frame to arrow tail, resolved in world frame";
+        parameter SI.Length gravityArrowLength = axisLength/2 "Length of gravity arrow";
+        parameter SI.Diameter gravityArrowDiameter = gravityArrowLength/defaultWidthFraction "Diameter of gravity arrow";
         input Types.Color gravityArrowColor = {0, 230, 0} "Color of gravity arrow";
         parameter SI.Diameter gravitySphereDiameter = 12742000 "Diameter of sphere representing gravity center (default = mean diameter of earth)";
         input Types.Color gravitySphereColor = {0, 230, 0} "Color of gravity sphere";
@@ -68,45 +93,45 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         parameter SI.Length groundLength_v = groundLength_u "Length of ground plane perpendicular to groundAxis_u";
         input Types.Color groundColor = {200, 200, 200} "Color of ground plane";
         parameter SI.Length nominalLength = 1 "Nominal length of multi-body system";
-        parameter SI.Length defaultAxisLength = nominalLength / 5 "Default for length of a frame axis (but not world frame)";
-        parameter SI.Length defaultJointLength = nominalLength / 10 "Default for the fixed length of a shape representing a joint";
-        parameter SI.Length defaultJointWidth = nominalLength / 20 "Default for the fixed width of a shape representing a joint";
-        parameter SI.Length defaultForceLength = nominalLength / 10 "Default for the fixed length of a shape representing a force (e.g., damper)";
-        parameter SI.Length defaultForceWidth = nominalLength / 20 "Default for the fixed width of a shape representing a force (e.g., spring, bushing)";
-        parameter SI.Length defaultBodyDiameter = nominalLength / 9 "Default for diameter of sphere representing the center of mass of a body";
+        parameter SI.Length defaultAxisLength = nominalLength/5 "Default for length of a frame axis (but not world frame)";
+        parameter SI.Length defaultJointLength = nominalLength/10 "Default for the fixed length of a shape representing a joint";
+        parameter SI.Length defaultJointWidth = nominalLength/20 "Default for the fixed width of a shape representing a joint";
+        parameter SI.Length defaultForceLength = nominalLength/10 "Default for the fixed length of a shape representing a force (e.g., damper)";
+        parameter SI.Length defaultForceWidth = nominalLength/20 "Default for the fixed width of a shape representing a force (e.g., spring, bushing)";
+        parameter SI.Length defaultBodyDiameter = nominalLength/9 "Default for diameter of sphere representing the center of mass of a body";
         parameter Real defaultWidthFraction = 20 "Default for shape width as a fraction of shape length (e.g., for Parts.FixedTranslation)";
-        parameter SI.Length defaultArrowDiameter = nominalLength / 40 "Default for arrow diameter (e.g., of forces, torques, sensors)";
+        parameter SI.Length defaultArrowDiameter = nominalLength/40 "Default for arrow diameter (e.g., of forces, torques, sensors)";
         parameter Real defaultFrameDiameterFraction = 40 "Default for arrow diameter of a coordinate system as a fraction of axis length";
         parameter Real defaultSpecularCoefficient(min = 0) = 0.7 "Default reflection of ambient light (= 0: light is completely absorbed)";
         parameter Real defaultN_to_m(unit = "N/m", min = 0) = 1000 "Default scaling of force arrows (length = force/defaultN_to_m)";
         parameter Real defaultNm_to_m(unit = "N.m/m", min = 0) = 1000 "Default scaling of torque arrows (length = torque/defaultNm_to_m)";
-        replaceable function gravityAcceleration = Modelica.Mechanics.MultiBody.Forces.Internal.standardGravityAcceleration(gravityType = gravityType, g = g * Modelica.Math.Vectors.normalizeWithAssert(n), mu = mu) constrainedby Modelica.Mechanics.MultiBody.Interfaces.partialGravityAcceleration;
+        replaceable function gravityAcceleration = Modelica.Mechanics.MultiBody.Forces.Internal.standardGravityAcceleration(gravityType = gravityType, g = g*Modelica.Math.Vectors.normalizeWithAssert(n), mu = mu) constrainedby Modelica.Mechanics.MultiBody.Interfaces.partialGravityAcceleration;
       protected
         parameter Integer ndim = if enableAnimation and animateWorld then 1 else 0;
         parameter Integer ndim2 = if enableAnimation and animateWorld and axisShowLabels then 1 else 0;
-        parameter SI.Length headLength = min(axisLength, axisDiameter * Types.Defaults.FrameHeadLengthFraction);
-        parameter SI.Length headWidth = axisDiameter * Types.Defaults.FrameHeadWidthFraction;
+        parameter SI.Length headLength = min(axisLength, axisDiameter*Types.Defaults.FrameHeadLengthFraction);
+        parameter SI.Length headWidth = axisDiameter*Types.Defaults.FrameHeadWidthFraction;
         parameter SI.Length lineLength = max(0, axisLength - headLength);
         parameter SI.Length lineWidth = axisDiameter;
-        parameter SI.Length scaledLabel = Modelica.Mechanics.MultiBody.Types.Defaults.FrameLabelHeightFraction * axisDiameter;
-        parameter SI.Length labelStart = 1.05 * axisLength;
+        parameter SI.Length scaledLabel = Modelica.Mechanics.MultiBody.Types.Defaults.FrameLabelHeightFraction*axisDiameter;
+        parameter SI.Length labelStart = 1.05*axisLength;
         Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape x_arrowLine(shapeType = "cylinder", length = lineLength, width = lineWidth, height = lineWidth, lengthDirection = {1, 0, 0}, widthDirection = {0, 1, 0}, color = axisColor_x, specularCoefficient = 0) if enableAnimation and animateWorld;
         Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape x_arrowHead(shapeType = "cone", length = headLength, width = headWidth, height = headWidth, lengthDirection = {1, 0, 0}, widthDirection = {0, 1, 0}, color = axisColor_x, r = {lineLength, 0, 0}, specularCoefficient = 0) if enableAnimation and animateWorld;
-        Modelica.Mechanics.MultiBody.Visualizers.Internal.Lines x_label(lines = scaledLabel * {[0, 0; 1, 1], [0, 1; 1, 0]}, diameter = axisDiameter, color = axisColor_x, r_lines = {labelStart, 0, 0}, n_x = {1, 0, 0}, n_y = {0, 1, 0}, specularCoefficient = 0) if enableAnimation and animateWorld and axisShowLabels;
+        Modelica.Mechanics.MultiBody.Visualizers.Internal.Lines x_label(lines = scaledLabel*{[0, 0; 1, 1], [0, 1; 1, 0]}, diameter = axisDiameter, color = axisColor_x, r_lines = {labelStart, 0, 0}, n_x = {1, 0, 0}, n_y = {0, 1, 0}, specularCoefficient = 0) if enableAnimation and animateWorld and axisShowLabels;
         Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape y_arrowLine(shapeType = "cylinder", length = lineLength, width = lineWidth, height = lineWidth, lengthDirection = {0, 1, 0}, widthDirection = {1, 0, 0}, color = axisColor_y, specularCoefficient = 0) if enableAnimation and animateWorld;
         Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape y_arrowHead(shapeType = "cone", length = headLength, width = headWidth, height = headWidth, lengthDirection = {0, 1, 0}, widthDirection = {1, 0, 0}, color = axisColor_y, r = {0, lineLength, 0}, specularCoefficient = 0) if enableAnimation and animateWorld;
-        Modelica.Mechanics.MultiBody.Visualizers.Internal.Lines y_label(lines = scaledLabel * {[0, 0; 1, 1.5], [0, 1.5; 0.5, 0.75]}, diameter = axisDiameter, color = axisColor_y, r_lines = {0, labelStart, 0}, n_x = {0, 1, 0}, n_y = {-1, 0, 0}, specularCoefficient = 0) if enableAnimation and animateWorld and axisShowLabels;
+        Modelica.Mechanics.MultiBody.Visualizers.Internal.Lines y_label(lines = scaledLabel*{[0, 0; 1, 1.5], [0, 1.5; 0.5, 0.75]}, diameter = axisDiameter, color = axisColor_y, r_lines = {0, labelStart, 0}, n_x = {0, 1, 0}, n_y = {-1, 0, 0}, specularCoefficient = 0) if enableAnimation and animateWorld and axisShowLabels;
         Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape z_arrowLine(shapeType = "cylinder", length = lineLength, width = lineWidth, height = lineWidth, lengthDirection = {0, 0, 1}, widthDirection = {0, 1, 0}, color = axisColor_z, specularCoefficient = 0) if enableAnimation and animateWorld;
         Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape z_arrowHead(shapeType = "cone", length = headLength, width = headWidth, height = headWidth, lengthDirection = {0, 0, 1}, widthDirection = {0, 1, 0}, color = axisColor_z, r = {0, 0, lineLength}, specularCoefficient = 0) if enableAnimation and animateWorld;
-        Modelica.Mechanics.MultiBody.Visualizers.Internal.Lines z_label(lines = scaledLabel * {[0, 0; 1, 0], [0, 1; 1, 1], [0, 1; 1, 0]}, diameter = axisDiameter, color = axisColor_z, r_lines = {0, 0, labelStart}, n_x = {0, 0, 1}, n_y = {0, 1, 0}, specularCoefficient = 0) if enableAnimation and animateWorld and axisShowLabels;
-        parameter SI.Length gravityHeadLength = min(gravityArrowLength, gravityArrowDiameter * Types.Defaults.ArrowHeadLengthFraction);
-        parameter SI.Length gravityHeadWidth = gravityArrowDiameter * Types.Defaults.ArrowHeadWidthFraction;
+        Modelica.Mechanics.MultiBody.Visualizers.Internal.Lines z_label(lines = scaledLabel*{[0, 0; 1, 0], [0, 1; 1, 1], [0, 1; 1, 0]}, diameter = axisDiameter, color = axisColor_z, r_lines = {0, 0, labelStart}, n_x = {0, 0, 1}, n_y = {0, 1, 0}, specularCoefficient = 0) if enableAnimation and animateWorld and axisShowLabels;
+        parameter SI.Length gravityHeadLength = min(gravityArrowLength, gravityArrowDiameter*Types.Defaults.ArrowHeadLengthFraction);
+        parameter SI.Length gravityHeadWidth = gravityArrowDiameter*Types.Defaults.ArrowHeadWidthFraction;
         parameter SI.Length gravityLineLength = max(0, gravityArrowLength - gravityHeadLength);
         Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape gravityArrowLine(shapeType = "cylinder", length = gravityLineLength, width = gravityArrowDiameter, height = gravityArrowDiameter, lengthDirection = n, widthDirection = {0, 1, 0}, color = gravityArrowColor, r_shape = gravityArrowTail, specularCoefficient = 0) if enableAnimation and animateGravity and gravityType == GravityTypes.UniformGravity;
-        Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape gravityArrowHead(shapeType = "cone", length = gravityHeadLength, width = gravityHeadWidth, height = gravityHeadWidth, lengthDirection = n, widthDirection = {0, 1, 0}, color = gravityArrowColor, r_shape = gravityArrowTail + Modelica.Math.Vectors.normalize(n) * gravityLineLength, specularCoefficient = 0) if enableAnimation and animateGravity and gravityType == GravityTypes.UniformGravity;
+        Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape gravityArrowHead(shapeType = "cone", length = gravityHeadLength, width = gravityHeadWidth, height = gravityHeadWidth, lengthDirection = n, widthDirection = {0, 1, 0}, color = gravityArrowColor, r_shape = gravityArrowTail + Modelica.Math.Vectors.normalize(n)*gravityLineLength, specularCoefficient = 0) if enableAnimation and animateGravity and gravityType == GravityTypes.UniformGravity;
         parameter Integer ndim_pointGravity = if enableAnimation and animateGravity and gravityType == GravityTypes.UniformGravity then 1 else 0;
-        Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape gravitySphere(shapeType = "sphere", r_shape = {-gravitySphereDiameter / 2, 0, 0}, lengthDirection = {1, 0, 0}, length = gravitySphereDiameter, width = gravitySphereDiameter, height = gravitySphereDiameter, color = gravitySphereColor, specularCoefficient = 0) if enableAnimation and animateGravity and gravityType == GravityTypes.PointGravity;
-        Modelica.Mechanics.MultiBody.Visualizers.Advanced.Surface surface(final multiColoredSurface = false, final wireframe = false, final color = groundColor, final specularCoefficient = 0, final transparency = 0, final R = Modelica.Mechanics.MultiBody.Frames.absoluteRotation(Modelica.Mechanics.MultiBody.Frames.from_nxy(n, groundAxis_u), Modelica.Mechanics.MultiBody.Frames.axesRotations({1, 2, 3}, {pi / 2, pi / 2, 0}, {0, 0, 0})), final r_0 = zeros(3), final nu = 2, final nv = 2, redeclare function surfaceCharacteristic = Modelica.Mechanics.MultiBody.Visualizers.Advanced.SurfaceCharacteristics.rectangle(lu = groundLength_u, lv = groundLength_v)) if enableAnimation and animateGround and gravityType == GravityTypes.UniformGravity;
+        Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape gravitySphere(shapeType = "sphere", r_shape = {-gravitySphereDiameter/2, 0, 0}, lengthDirection = {1, 0, 0}, length = gravitySphereDiameter, width = gravitySphereDiameter, height = gravitySphereDiameter, color = gravitySphereColor, specularCoefficient = 0) if enableAnimation and animateGravity and gravityType == GravityTypes.PointGravity;
+        Modelica.Mechanics.MultiBody.Visualizers.Advanced.Surface surface(final multiColoredSurface = false, final wireframe = false, final color = groundColor, final specularCoefficient = 0, final transparency = 0, final R = Modelica.Mechanics.MultiBody.Frames.absoluteRotation(Modelica.Mechanics.MultiBody.Frames.from_nxy(n, groundAxis_u), Modelica.Mechanics.MultiBody.Frames.axesRotations({1, 2, 3}, {pi/2, pi/2, 0}, {0, 0, 0})), final r_0 = zeros(3), final nu = 2, final nv = 2, redeclare function surfaceCharacteristic = Modelica.Mechanics.MultiBody.Visualizers.Advanced.SurfaceCharacteristics.rectangle(lu = groundLength_u, lv = groundLength_v)) if enableAnimation and animateGround and gravityType == GravityTypes.UniformGravity;
       equation
         Connections.root(frame_b.R);
         assert(Modelica.Math.Vectors.length(n) > 1e-10, "Parameter n of World object is wrong (length(n) > 0 required)");
@@ -129,10 +154,10 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             extends Modelica.Mechanics.MultiBody.Interfaces.partialGravityAcceleration;
             import Modelica.Mechanics.MultiBody.Types.GravityTypes;
             input GravityTypes gravityType "Type of gravity field";
-            input SI.Acceleration[3] g "Constant gravity acceleration, resolved in world frame, if gravityType=UniformGravity";
+            input SI.Acceleration g[3] "Constant gravity acceleration, resolved in world frame, if gravityType=UniformGravity";
             input Real mu(unit = "m3/s2") "Field constant of point gravity field, if gravityType=PointGravity";
           algorithm
-            gravity := if gravityType == GravityTypes.UniformGravity then g else if gravityType == GravityTypes.PointGravity then -mu / (r * r) * (r / Modelica.Math.Vectors.length(r)) else zeros(3);
+            gravity := if gravityType == GravityTypes.UniformGravity then g else if gravityType == GravityTypes.PointGravity then -(mu/(r*r))*(r/Modelica.Math.Vectors.length(r)) else zeros(3);
             annotation(Inline = true);
           end standardGravityAcceleration;
         end Internal;
@@ -143,8 +168,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
 
         record Orientation "Orientation object defining rotation from a frame 1 into a frame 2"
           extends Modelica.Icons.Record;
-          Real[3, 3] T "Transformation matrix from world frame to local frame";
-          SI.AngularVelocity[3] w "Absolute angular velocity of local frame, resolved in local frame";
+          Real T[3, 3] "Transformation matrix from world frame to local frame";
+          SI.AngularVelocity w[3] "Absolute angular velocity of local frame, resolved in local frame";
 
           encapsulated function equalityConstraint "Return the constraint residues to express that two frames have the same orientation"
             import Modelica;
@@ -152,9 +177,9 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             extends Modelica.Icons.Function;
             input Frames.Orientation R1 "Orientation object to rotate frame 0 into frame 1";
             input Frames.Orientation R2 "Orientation object to rotate frame 0 into frame 2";
-            output Real[3] residue "The rotation angles around x-, y-, and z-axis of frame 1 to rotate frame 1 into frame 2 for a small rotation (should be zero)";
+            output Real residue[3] "The rotation angles around x-, y-, and z-axis of frame 1 to rotate frame 1 into frame 2 for a small rotation (should be zero)";
           algorithm
-            residue := {Modelica.Math.atan2(cross(R1.T[1, :], R1.T[2, :]) * R2.T[2, :], R1.T[1, :] * R2.T[1, :]), Modelica.Math.atan2(-cross(R1.T[1, :], R1.T[2, :]) * R2.T[1, :], R1.T[2, :] * R2.T[2, :]), Modelica.Math.atan2(R1.T[2, :] * R2.T[1, :], R1.T[3, :] * R2.T[3, :])};
+            residue := {Modelica.Math.atan2(cross(R1.T[1, :], R1.T[2, :])*R2.T[2, :], R1.T[1, :]*R2.T[1, :]), Modelica.Math.atan2(-cross(R1.T[1, :], R1.T[2, :])*R2.T[1, :], R1.T[2, :]*R2.T[2, :]), Modelica.Math.atan2(R1.T[2, :]*R2.T[1, :], R1.T[3, :]*R2.T[3, :])};
             annotation(Inline = true);
           end equalityConstraint;
         end Orientation;
@@ -162,7 +187,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         function angularVelocity2 "Return angular velocity resolved in frame 2 from orientation object"
           extends Modelica.Icons.Function;
           input Orientation R "Orientation object to rotate frame 1 into frame 2";
-          output SI.AngularVelocity[3] w "Angular velocity of frame 2 with respect to frame 1 resolved in frame 2";
+          output SI.AngularVelocity w[3] "Angular velocity of frame 2 with respect to frame 1 resolved in frame 2";
         algorithm
           w := R.w;
           annotation(Inline = true);
@@ -171,30 +196,30 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         function resolve1 "Transform vector from frame 2 to frame 1"
           extends Modelica.Icons.Function;
           input Orientation R "Orientation object to rotate frame 1 into frame 2";
-          input Real[3] v2 "Vector in frame 2";
-          output Real[3] v1 "Vector in frame 1";
+          input Real v2[3] "Vector in frame 2";
+          output Real v1[3] "Vector in frame 1";
         algorithm
-          v1 := transpose(R.T) * v2;
+          v1 := transpose(R.T)*v2;
           annotation(derivative(noDerivative = R) = Internal.resolve1_der, InlineAfterIndexReduction = true);
         end resolve1;
 
         function resolve2 "Transform vector from frame 1 to frame 2"
           extends Modelica.Icons.Function;
           input Orientation R "Orientation object to rotate frame 1 into frame 2";
-          input Real[3] v1 "Vector in frame 1";
-          output Real[3] v2 "Vector in frame 2";
+          input Real v1[3] "Vector in frame 1";
+          output Real v2[3] "Vector in frame 2";
         algorithm
-          v2 := R.T * v1;
+          v2 := R.T*v1;
           annotation(derivative(noDerivative = R) = Internal.resolve2_der, InlineAfterIndexReduction = true);
         end resolve2;
 
         function resolveDyade1 "Transform second order tensor from frame 2 to frame 1"
           extends Modelica.Icons.Function;
           input Orientation R "Orientation object to rotate frame 1 into frame 2";
-          input Real[3, 3] D2 "Second order tensor resolved in frame 2";
-          output Real[3, 3] D1 "Second order tensor resolved in frame 1";
+          input Real D2[3, 3] "Second order tensor resolved in frame 2";
+          output Real D1[3, 3] "Second order tensor resolved in frame 1";
         algorithm
-          D1 := transpose(R.T) * D2 * R.T;
+          D1 := transpose(R.T)*D2*R.T;
           annotation(Inline = true);
         end resolveDyade1;
 
@@ -212,44 +237,44 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           input Orientation R_rel "Orientation object to rotate frame 1 into frame 2";
           output Orientation R2 "Orientation object to rotate frame 0 into frame 2";
         algorithm
-          R2 := Orientation(T = R_rel.T * R1.T, w = resolve2(R_rel, R1.w) + R_rel.w);
+          R2 := Orientation(T = R_rel.T*R1.T, w = resolve2(R_rel, R1.w) + R_rel.w);
           annotation(Inline = true);
         end absoluteRotation;
 
         function planarRotationAngle "Return angle of a planar rotation, given the rotation axis and the representations of a vector in frame 1 and frame 2"
           extends Modelica.Icons.Function;
-          input Real[3] e(each final unit = "1") "Normalized axis of rotation to rotate frame 1 around e into frame 2 (must have length=1)";
-          input Real[3] v1 "A vector v resolved in frame 1 (shall not be parallel to e)";
-          input Real[3] v2 "Vector v resolved in frame 2, i.e., v2 = resolve2(planarRotation(e,angle),v1)";
+          input Real e[3](each final unit = "1") "Normalized axis of rotation to rotate frame 1 around e into frame 2 (must have length=1)";
+          input Real v1[3] "A vector v resolved in frame 1 (shall not be parallel to e)";
+          input Real v2[3] "Vector v resolved in frame 2, i.e., v2 = resolve2(planarRotation(e,angle),v1)";
           output SI.Angle angle "Rotation angle to rotate frame 1 into frame 2 along axis e in the range: -pi <= angle <= pi";
         algorithm
-          angle := Modelica.Math.atan2(-cross(e, v1) * v2, v1 * v2 - e * v1 * (e * v2));
+          angle := Modelica.Math.atan2(-cross(e, v1)*v2, v1*v2 - (e*v1)*(e*v2));
           annotation(Inline = true);
         end planarRotationAngle;
 
         function axesRotations "Return fixed rotation object to rotate in sequence around fixed angles along 3 axes"
           import TM = Modelica.Mechanics.MultiBody.Frames.TransformationMatrices;
           extends Modelica.Icons.Function;
-          input Integer[3] sequence(min = {1, 1, 1}, max = {3, 3, 3}) = {1, 2, 3} "Sequence of rotations from frame 1 to frame 2 along axis sequence[i]";
-          input SI.Angle[3] angles "Rotation angles around the axes defined in 'sequence'";
-          input SI.AngularVelocity[3] der_angles "= der(angles)";
+          input Integer sequence[3](min = {1, 1, 1}, max = {3, 3, 3}) = {1, 2, 3} "Sequence of rotations from frame 1 to frame 2 along axis sequence[i]";
+          input SI.Angle angles[3] "Rotation angles around the axes defined in 'sequence'";
+          input SI.AngularVelocity der_angles[3] "= der(angles)";
           output Orientation R "Orientation object to rotate frame 1 into frame 2";
         algorithm
-          R := Orientation(T = TM.axisRotation(sequence[3], angles[3]) * TM.axisRotation(sequence[2], angles[2]) * TM.axisRotation(sequence[1], angles[1]), w = Frames.axis(sequence[3]) * der_angles[3] + TM.resolve2(TM.axisRotation(sequence[3], angles[3]), Frames.axis(sequence[2]) * der_angles[2]) + TM.resolve2(TM.axisRotation(sequence[3], angles[3]) * TM.axisRotation(sequence[2], angles[2]), Frames.axis(sequence[1]) * der_angles[1]));
+          R := Orientation(T = TM.axisRotation(sequence[3], angles[3])*TM.axisRotation(sequence[2], angles[2])*TM.axisRotation(sequence[1], angles[1]), w = Frames.axis(sequence[3])*der_angles[3] + TM.resolve2(TM.axisRotation(sequence[3], angles[3]), Frames.axis(sequence[2])*der_angles[2]) + TM.resolve2(TM.axisRotation(sequence[3], angles[3])*TM.axisRotation(sequence[2], angles[2]), Frames.axis(sequence[1])*der_angles[1]));
           annotation(Inline = true);
         end axesRotations;
 
         function axesRotationsAngles "Return the 3 angles to rotate in sequence around 3 axes to construct the given orientation object"
           extends Modelica.Icons.Function;
           input Orientation R "Orientation object to rotate frame 1 into frame 2";
-          input Integer[3] sequence(min = {1, 1, 1}, max = {3, 3, 3}) = {1, 2, 3} "Sequence of rotations from frame 1 to frame 2 along axis sequence[i]";
+          input Integer sequence[3](min = {1, 1, 1}, max = {3, 3, 3}) = {1, 2, 3} "Sequence of rotations from frame 1 to frame 2 along axis sequence[i]";
           input SI.Angle guessAngle1 = 0 "Select angles[1] such that |angles[1] - guessAngle1| is a minimum";
-          output SI.Angle[3] angles "Rotation angles around the axes defined in 'sequence' such that R=Frames.axesRotation(sequence,angles); -pi < angles[i] <= pi";
+          output SI.Angle angles[3] "Rotation angles around the axes defined in 'sequence' such that R=Frames.axesRotation(sequence,angles); -pi < angles[i] <= pi";
         protected
-          Real[3] e1_1(each final unit = "1") "First rotation axis, resolved in frame 1";
-          Real[3] e2_1a(each final unit = "1") "Second rotation axis, resolved in frame 1a";
-          Real[3] e3_1(each final unit = "1") "Third rotation axis, resolved in frame 1";
-          Real[3] e3_2(each final unit = "1") "Third rotation axis, resolved in frame 2";
+          Real e1_1[3](each final unit = "1") "First rotation axis, resolved in frame 1";
+          Real e2_1a[3](each final unit = "1") "Second rotation axis, resolved in frame 1a";
+          Real e3_1[3](each final unit = "1") "Third rotation axis, resolved in frame 1";
+          Real e3_2[3](each final unit = "1") "Third rotation axis, resolved in frame 2";
           Real A "Coefficient A in the equation A*cos(angles[1])+B*sin(angles[1]) = 0";
           Real B "Coefficient B in the equation A*cos(angles[1])+B*sin(angles[1]) = 0";
           SI.Angle angle_1a "Solution 1 for angles[1]";
@@ -261,8 +286,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           e2_1a := if sequence[2] == 1 then {1, 0, 0} else if sequence[2] == 2 then {0, 1, 0} else {0, 0, 1};
           e3_1 := R.T[sequence[3], :];
           e3_2 := if sequence[3] == 1 then {1, 0, 0} else if sequence[3] == 2 then {0, 1, 0} else {0, 0, 1};
-          A := e2_1a * e3_1;
-          B := cross(e1_1, e2_1a) * e3_1;
+          A := e2_1a*e3_1;
+          B := cross(e1_1, e2_1a)*e3_1;
           if abs(A) <= 1e-12 and abs(B) <= 1e-12 then
             angles[1] := guessAngle1;
           else
@@ -277,8 +302,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
 
         function from_nxy "Return fixed orientation object from n_x and n_y vectors"
           extends Modelica.Icons.Function;
-          input Real[3] n_x(each final unit = "1") "Vector in direction of x-axis of frame 2, resolved in frame 1";
-          input Real[3] n_y(each final unit = "1") "Vector in direction of y-axis of frame 2, resolved in frame 1";
+          input Real n_x[3](each final unit = "1") "Vector in direction of x-axis of frame 2, resolved in frame 1";
+          input Real n_y[3](each final unit = "1") "Vector in direction of y-axis of frame 2, resolved in frame 1";
           output Orientation R "Orientation object to rotate frame 1 into frame 2";
         algorithm
           R := Orientation(T = TransformationMatrices.from_nxy(n_x, n_y), w = zeros(3));
@@ -287,10 +312,10 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         function from_Q "Return orientation object R from quaternion orientation object Q"
           extends Modelica.Icons.Function;
           input Quaternions.Orientation Q "Quaternions orientation object to rotate frame 1 into frame 2";
-          input SI.AngularVelocity[3] w "Angular velocity from frame 2 with respect to frame 1, resolved in frame 2";
+          input SI.AngularVelocity w[3] "Angular velocity from frame 2 with respect to frame 1, resolved in frame 2";
           output Orientation R "Orientation object to rotate frame 1 into frame 2";
         algorithm
-          R := Orientation([2 * (Q[1] * Q[1] + Q[4] * Q[4]) - 1, 2 * (Q[1] * Q[2] + Q[3] * Q[4]), 2 * (Q[1] * Q[3] - Q[2] * Q[4]); 2 * (Q[2] * Q[1] - Q[3] * Q[4]), 2 * (Q[2] * Q[2] + Q[4] * Q[4]) - 1, 2 * (Q[2] * Q[3] + Q[1] * Q[4]); 2 * (Q[3] * Q[1] + Q[2] * Q[4]), 2 * (Q[3] * Q[2] - Q[1] * Q[4]), 2 * (Q[3] * Q[3] + Q[4] * Q[4]) - 1], w = w);
+          R := Orientation([2*(Q[1]*Q[1] + Q[4]*Q[4]) - 1, 2*(Q[1]*Q[2] + Q[3]*Q[4]), 2*(Q[1]*Q[3] - Q[2]*Q[4]); 2*(Q[2]*Q[1] - Q[3]*Q[4]), 2*(Q[2]*Q[2] + Q[4]*Q[4]) - 1, 2*(Q[2]*Q[3] + Q[1]*Q[4]); 2*(Q[3]*Q[1] + Q[2]*Q[4]), 2*(Q[3]*Q[2] - Q[1]*Q[4]), 2*(Q[3]*Q[3] + Q[4]*Q[4]) - 1], w = w);
           annotation(Inline = true);
         end from_Q;
 
@@ -307,9 +332,9 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         function axis "Return unit vector for x-, y-, or z-axis"
           extends Modelica.Icons.Function;
           input Integer axis(min = 1, max = 3) "Axis vector to be returned";
-          output Real[3] e(each final unit = "1") "Unit axis vector";
+          output Real e[3](each final unit = "1") "Unit axis vector";
         algorithm
-          e := if axis == 1 then {1, 0, 0} else if axis == 2 then {0, 1, 0} else {0, 0, 1};
+          e := if axis == 1 then {1, 0, 0} else (if axis == 2 then {0, 1, 0} else {0, 0, 1});
           annotation(Inline = true);
         end axis;
 
@@ -325,9 +350,9 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
               extends Modelica.Icons.Function;
               input Quaternions.Orientation Q1 "Quaternions orientation object to rotate frame 0 into frame 1";
               input Quaternions.Orientation Q2 "Quaternions orientation object to rotate frame 0 into frame 2";
-              output Real[3] residue "Zero vector if Q1 and Q2 are identical (the first three elements of the relative transformation (is {0,0,0} for the null rotation, guarded by atan2 to make the mirrored solution invalid";
+              output Real residue[3] "Zero vector if Q1 and Q2 are identical (the first three elements of the relative transformation (is {0,0,0} for the null rotation, guarded by atan2 to make the mirrored solution invalid";
             algorithm
-              residue := {Modelica.Math.atan2({Q1[4], Q1[3], -Q1[2], -Q1[1]} * Q2, Q1 * Q2), Modelica.Math.atan2({-Q1[3], Q1[4], Q1[1], -Q1[2]} * Q2, Q1 * Q2), Modelica.Math.atan2({Q1[2], -Q1[1], Q1[4], -Q1[3]} * Q2, Q1 * Q2)};
+              residue := {Modelica.Math.atan2({Q1[4], Q1[3], -Q1[2], -Q1[1]}*Q2, Q1*Q2), Modelica.Math.atan2({-Q1[3], Q1[4], Q1[1], -Q1[2]}*Q2, Q1*Q2), Modelica.Math.atan2({Q1[2], -Q1[1], Q1[4], -Q1[3]}*Q2, Q1*Q2)};
               annotation(Inline = true);
             end equalityConstraint;
           end Orientation;
@@ -337,9 +362,9 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           function orientationConstraint "Return residues of orientation constraints (shall be zero)"
             extends Modelica.Icons.Function;
             input Quaternions.Orientation Q "Quaternions orientation object to rotate frame 1 into frame 2";
-            output Real[1] residue "Residue constraint (shall be zero)";
+            output Real residue[1] "Residue constraint (shall be zero)";
           algorithm
-            residue := {Q * Q - 1};
+            residue := {Q*Q - 1};
             annotation(Inline = true);
           end orientationConstraint;
 
@@ -347,9 +372,9 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             extends Modelica.Icons.Function;
             input Quaternions.Orientation Q "Quaternions orientation object to rotate frame 1 into frame 2";
             input der_Orientation der_Q "Derivative of Q";
-            output SI.AngularVelocity[3] w "Angular velocity of frame 2 with respect to frame 1 resolved in frame 2";
+            output SI.AngularVelocity w[3] "Angular velocity of frame 2 with respect to frame 1 resolved in frame 2";
           algorithm
-            w := 2 * ([Q[4], Q[3], -Q[2], -Q[1]; -Q[3], Q[4], Q[1], -Q[2]; Q[2], -Q[1], Q[4], -Q[3]] * der_Q);
+            w := 2*([Q[4], Q[3], -Q[2], -Q[1]; -Q[3], Q[4], Q[1], -Q[2]; Q[2], -Q[1], Q[4], -Q[3]]*der_Q);
             annotation(Inline = true);
           end angularVelocity2;
 
@@ -363,7 +388,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
 
           function from_T "Return quaternion orientation object Q from transformation matrix T"
             extends Modelica.Icons.Function;
-            input Real[3, 3] T "Transformation matrix to transform vector from frame 1 to frame 2 (v2=T*v1)";
+            input Real T[3, 3] "Transformation matrix to transform vector from frame 1 to frame 2 (v2=T*v1)";
             input Quaternions.Orientation Q_guess = nullRotation() "Guess value for Q (there are 2 solutions; the one close to Q_guess is used";
             output Quaternions.Orientation Q "Quaternions orientation object to rotate frame 1 into frame 2 (Q and -Q have same transformation matrix)";
           protected
@@ -374,30 +399,30 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             Real c3;
             Real c4;
             constant Real p4limit = 0.1;
-            constant Real c4limit = 4 * p4limit * p4limit;
+            constant Real c4limit = 4*p4limit*p4limit;
           algorithm
             c1 := 1 + T[1, 1] - T[2, 2] - T[3, 3];
             c2 := 1 + T[2, 2] - T[1, 1] - T[3, 3];
             c3 := 1 + T[3, 3] - T[1, 1] - T[2, 2];
             c4 := 1 + T[1, 1] + T[2, 2] + T[3, 3];
-            if c4 > c4limit or c4 > c1 and c4 > c2 and c4 > c3 then
-              paux := sqrt(c4) / 2;
-              paux4 := 4 * paux;
-              Q := {(T[2, 3] - T[3, 2]) / paux4, (T[3, 1] - T[1, 3]) / paux4, (T[1, 2] - T[2, 1]) / paux4, paux};
+            if c4 > c4limit or (c4 > c1 and c4 > c2 and c4 > c3) then
+              paux := sqrt(c4)/2;
+              paux4 := 4*paux;
+              Q := {(T[2, 3] - T[3, 2])/paux4, (T[3, 1] - T[1, 3])/paux4, (T[1, 2] - T[2, 1])/paux4, paux};
             elseif c1 > c2 and c1 > c3 and c1 > c4 then
-              paux := sqrt(c1) / 2;
-              paux4 := 4 * paux;
-              Q := {paux, (T[1, 2] + T[2, 1]) / paux4, (T[1, 3] + T[3, 1]) / paux4, (T[2, 3] - T[3, 2]) / paux4};
+              paux := sqrt(c1)/2;
+              paux4 := 4*paux;
+              Q := {paux, (T[1, 2] + T[2, 1])/paux4, (T[1, 3] + T[3, 1])/paux4, (T[2, 3] - T[3, 2])/paux4};
             elseif c2 > c1 and c2 > c3 and c2 > c4 then
-              paux := sqrt(c2) / 2;
-              paux4 := 4 * paux;
-              Q := {(T[1, 2] + T[2, 1]) / paux4, paux, (T[2, 3] + T[3, 2]) / paux4, (T[3, 1] - T[1, 3]) / paux4};
+              paux := sqrt(c2)/2;
+              paux4 := 4*paux;
+              Q := {(T[1, 2] + T[2, 1])/paux4, paux, (T[2, 3] + T[3, 2])/paux4, (T[3, 1] - T[1, 3])/paux4};
             else
-              paux := sqrt(c3) / 2;
-              paux4 := 4 * paux;
-              Q := {(T[1, 3] + T[3, 1]) / paux4, (T[2, 3] + T[3, 2]) / paux4, paux, (T[1, 2] - T[2, 1]) / paux4};
+              paux := sqrt(c3)/2;
+              paux4 := 4*paux;
+              Q := {(T[1, 3] + T[3, 1])/paux4, (T[2, 3] + T[3, 2])/paux4, paux, (T[1, 2] - T[2, 1])/paux4};
             end if;
-            if Q * Q_guess < 0 then
+            if Q*Q_guess < 0 then
               Q := -Q;
             else
             end if;
@@ -416,9 +441,9 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
               extends Modelica.Icons.Function;
               input TransformationMatrices.Orientation T1 "Orientation object to rotate frame 0 into frame 1";
               input TransformationMatrices.Orientation T2 "Orientation object to rotate frame 0 into frame 2";
-              output Real[3] residue "The rotation angles around x-, y-, and z-axis of frame 1 to rotate frame 1 into frame 2 for a small rotation (should be zero)";
+              output Real residue[3] "The rotation angles around x-, y-, and z-axis of frame 1 to rotate frame 1 into frame 2 for a small rotation (should be zero)";
             algorithm
-              residue := {cross(T1[1, :], T1[2, :]) * T2[2, :], -cross(T1[1, :], T1[2, :]) * T2[1, :], T1[2, :] * T2[1, :]};
+              residue := {cross(T1[1, :], T1[2, :])*T2[2, :], -cross(T1[1, :], T1[2, :])*T2[1, :], T1[2, :]*T2[1, :]};
               annotation(Inline = true);
             end equalityConstraint;
           end Orientation;
@@ -426,20 +451,20 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           function resolve1 "Transform vector from frame 2 to frame 1"
             extends Modelica.Icons.Function;
             input TransformationMatrices.Orientation T "Orientation object to rotate frame 1 into frame 2";
-            input Real[3] v2 "Vector in frame 2";
-            output Real[3] v1 "Vector in frame 1";
+            input Real v2[3] "Vector in frame 2";
+            output Real v1[3] "Vector in frame 1";
           algorithm
-            v1 := transpose(T) * v2;
+            v1 := transpose(T)*v2;
             annotation(Inline = true);
           end resolve1;
 
           function resolve2 "Transform vector from frame 1 to frame 2"
             extends Modelica.Icons.Function;
             input TransformationMatrices.Orientation T "Orientation object to rotate frame 1 into frame 2";
-            input Real[3] v1 "Vector in frame 1";
-            output Real[3] v2 "Vector in frame 2";
+            input Real v1[3] "Vector in frame 1";
+            output Real v2[3] "Vector in frame 2";
           algorithm
-            v2 := T * v1;
+            v2 := T*v1;
             annotation(Inline = true);
           end resolve2;
 
@@ -449,18 +474,18 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             input TransformationMatrices.Orientation T_rel "Orientation object to rotate frame 1 into frame 2";
             output TransformationMatrices.Orientation T2 "Orientation object to rotate frame 0 into frame 2";
           algorithm
-            T2 := T_rel * T1;
+            T2 := T_rel*T1;
             annotation(Inline = true);
           end absoluteRotation;
 
           function planarRotation "Return orientation object of a planar rotation"
             import Modelica.Math;
             extends Modelica.Icons.Function;
-            input Real[3] e(each final unit = "1") "Normalized axis of rotation (must have length=1)";
+            input Real e[3](each final unit = "1") "Normalized axis of rotation (must have length=1)";
             input SI.Angle angle "Rotation angle to rotate frame 1 into frame 2 along axis e";
             output TransformationMatrices.Orientation T "Orientation object to rotate frame 1 into frame 2";
           algorithm
-            T := outerProduct(e, e) + (identity(3) - outerProduct(e, e)) * Math.cos(angle) - skew(e) * Math.sin(angle);
+            T := outerProduct(e, e) + (identity(3) - outerProduct(e, e))*Math.cos(angle) - skew(e)*Math.sin(angle);
             annotation(Inline = true);
           end planarRotation;
 
@@ -478,16 +503,16 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             extends Modelica.Icons.Function;
             import Modelica.Math.Vectors.length;
             import Modelica.Math.Vectors.normalize;
-            input Real[3] n_x(each final unit = "1") "Vector in direction of x-axis of frame 2, resolved in frame 1";
-            input Real[3] n_y(each final unit = "1") "Vector in direction of y-axis of frame 2, resolved in frame 1";
+            input Real n_x[3](each final unit = "1") "Vector in direction of x-axis of frame 2, resolved in frame 1";
+            input Real n_y[3](each final unit = "1") "Vector in direction of y-axis of frame 2, resolved in frame 1";
             output TransformationMatrices.Orientation T "Orientation object to rotate frame 1 into frame 2";
           protected
-            Real[3] e_x(each final unit = "1") = if length(n_x) < 1e-10 then {1, 0, 0} else normalize(n_x);
-            Real[3] e_y(each final unit = "1") = if length(n_y) < 1e-10 then {0, 1, 0} else normalize(n_y);
-            Real[3] n_z_aux(each final unit = "1") = cross(e_x, e_y);
-            Real[3] n_y_aux(each final unit = "1") = if n_z_aux * n_z_aux > 1.0e-6 then e_y else if abs(e_x[1]) > 1.0e-6 then {0, 1, 0} else {1, 0, 0};
-            Real[3] e_z_aux(each final unit = "1") = cross(e_x, n_y_aux);
-            Real[3] e_z(each final unit = "1") = normalize(e_z_aux);
+            Real e_x[3](each final unit = "1") = if length(n_x) < 1e-10 then {1, 0, 0} else normalize(n_x);
+            Real e_y[3](each final unit = "1") = if length(n_y) < 1e-10 then {0, 1, 0} else normalize(n_y);
+            Real n_z_aux[3](each final unit = "1") = cross(e_x, e_y);
+            Real n_y_aux[3](each final unit = "1") = if n_z_aux*n_z_aux > 1.0e-6 then e_y else if abs(e_x[1]) > 1.0e-6 then {0, 1, 0} else {1, 0, 0};
+            Real e_z_aux[3](each final unit = "1") = cross(e_x, n_y_aux);
+            Real e_z[3](each final unit = "1") = normalize(e_z_aux);
           algorithm
             T := {e_x, cross(e_z, e_x), e_z};
           end from_nxy;
@@ -502,9 +527,9 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             import Modelica.Mechanics.MultiBody.Frames;
             extends Modelica.Icons.Function;
             input Orientation R "Orientation object to rotate frame 1 into frame 2";
-            input Real[3] v2 "Vector resolved in frame 2";
-            input Real[3] v2_der "= der(v2)";
-            output Real[3] v1_der "Derivative of vector v resolved in frame 1";
+            input Real v2[3] "Vector resolved in frame 2";
+            input Real v2_der[3] "= der(v2)";
+            output Real v1_der[3] "Derivative of vector v resolved in frame 1";
           algorithm
             v1_der := Frames.resolve1(R, v2_der + cross(R.w, v2));
             annotation(Inline = true);
@@ -514,9 +539,9 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             import Modelica.Mechanics.MultiBody.Frames;
             extends Modelica.Icons.Function;
             input Orientation R "Orientation object to rotate frame 1 into frame 2";
-            input Real[3] v1 "Vector resolved in frame 1";
-            input Real[3] v1_der "= der(v1)";
-            output Real[3] v2_der "Derivative of vector v resolved in frame 2";
+            input Real v1[3] "Vector resolved in frame 1";
+            input Real v1_der[3] "= der(v1)";
+            output Real v2_der[3] "Derivative of vector v resolved in frame 2";
           algorithm
             v2_der := Frames.resolve2(R, v1_der) - cross(R.w, Frames.resolve2(R, v1));
             annotation(Inline = true);
@@ -528,16 +553,16 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         extends Modelica.Icons.InterfacesPackage;
 
         connector Frame "Coordinate system fixed to the component with one cut-force and cut-torque (no icon)"
-          SI.Position[3] r_0 "Position vector from world frame to the connector frame origin, resolved in world frame";
+          SI.Position r_0[3] "Position vector from world frame to the connector frame origin, resolved in world frame";
           Frames.Orientation R "Orientation object to rotate the world frame into the connector frame";
-          flow SI.Force[3] f "Cut-force resolved in connector frame" annotation(unassignedMessage = "All Forces cannot be uniquely calculated.
+          flow SI.Force f[3] "Cut-force resolved in connector frame" annotation(unassignedMessage = "All Forces cannot be uniquely calculated.
         The reason could be that the mechanism contains
         a planar loop or that joints constrain the
         same motion. For planar loops, use for one
         revolute joint per loop the joint
         Joints.RevolutePlanarLoopConstraint instead of
         Joints.Revolute.");
-          flow SI.Torque[3] t "Cut-torque resolved in connector frame";
+          flow SI.Torque t[3] "Cut-torque resolved in connector frame";
         end Frame;
 
         connector Frame_a "Coordinate system fixed to the component with one cut-force and cut-torque (filled rectangular icon)"
@@ -561,8 +586,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
 
         partial function partialGravityAcceleration "Interface for the gravity function used in the World object"
           extends Modelica.Icons.Function;
-          input SI.Position[3] r "Position vector from world frame to actual point, resolved in world frame";
-          output SI.Acceleration[3] gravity "Gravity acceleration at position r, resolved in world frame";
+          input SI.Position r[3] "Position vector from world frame to actual point, resolved in world frame";
+          output SI.Acceleration gravity[3] "Gravity acceleration at position r, resolved in world frame";
         end partialGravityAcceleration;
 
         partial function partialSurfaceCharacteristic "Interface for a function returning surface characteristics"
@@ -570,10 +595,10 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           input Integer nu "Number of points in u-Dimension";
           input Integer nv "Number of points in v-Dimension";
           input Boolean multiColoredSurface = false "= true: Color is defined for each surface point";
-          output SI.Position[nu, nv] X "[nu,nv] positions of points in x-Direction resolved in surface frame";
-          output SI.Position[nu, nv] Y "[nu,nv] positions of points in y-Direction resolved in surface frame";
-          output SI.Position[nu, nv] Z "[nu,nv] positions of points in z-Direction resolved in surface frame";
-          output Real[if multiColoredSurface then nu else 0, if multiColoredSurface then nv else 0, 3] C "[nu,nv,3] Color array, defining the color for each surface point";
+          output SI.Position X[nu, nv] "[nu,nv] positions of points in x-Direction resolved in surface frame";
+          output SI.Position Y[nu, nv] "[nu,nv] positions of points in y-Direction resolved in surface frame";
+          output SI.Position Z[nu, nv] "[nu,nv] positions of points in z-Direction resolved in surface frame";
+          output Real C[if multiColoredSurface then nu else 0, if multiColoredSurface then nv else 0, 3] "[nu,nv,3] Color array, defining the color for each surface point";
         end partialSurfaceCharacteristic;
       end Interfaces;
 
@@ -593,7 +618,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           input Types.Color boxColor = Modelica.Mechanics.MultiBody.Types.Defaults.JointColor "Color of prismatic joint box";
           input Types.SpecularCoefficient specularCoefficient = world.defaultSpecularCoefficient "Reflection of ambient light (= 0: light is completely absorbed)";
           parameter StateSelect stateSelect = StateSelect.prefer "Priority to use distance s and v=der(s) as states";
-          final parameter Real[3] e(each final unit = "1") = Modelica.Math.Vectors.normalizeWithAssert(n) "Unit vector in direction of prismatic axis n";
+          final parameter Real e[3](each final unit = "1") = Modelica.Math.Vectors.normalizeWithAssert(n) "Unit vector in direction of prismatic axis n";
           SI.Position s(start = 0, final stateSelect = stateSelect) "Relative distance between frame_a and frame_b" annotation(unassignedMessage = "
         The relative distance s of a prismatic joint cannot be determined.
         Possible reasons:
@@ -614,11 +639,11 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         equation
           v = der(s);
           a = der(v);
-          frame_b.r_0 = frame_a.r_0 + Frames.resolve1(frame_a.R, e * s);
+          frame_b.r_0 = frame_a.r_0 + Frames.resolve1(frame_a.R, e*s);
           frame_b.R = frame_a.R;
           zeros(3) = frame_a.f + frame_b.f;
-          zeros(3) = frame_a.t + frame_b.t + cross(e * s, frame_b.f);
-          f = -e * frame_b.f;
+          zeros(3) = frame_a.t + frame_b.t + cross(e*s, frame_b.f);
+          f = -e*frame_b.f;
           s = internalAxis.s;
           connect(fixed.flange, support);
           connect(internalAxis.flange, axis);
@@ -635,13 +660,13 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           Interfaces.Frame_a frame_a "Coordinate system fixed to the component with one cut-force and cut-torque";
           Interfaces.Frame_b frame_b "Coordinate system fixed to the component with one cut-force and cut-torque";
           parameter Boolean animation = true "= true, if animation shall be enabled";
-          parameter SI.Position[3] r(start = {0, 0, 0}) "Vector from frame_a to frame_b resolved in frame_a";
+          parameter SI.Position r[3](start = {0, 0, 0}) "Vector from frame_a to frame_b resolved in frame_a";
           parameter Types.ShapeType shapeType = "cylinder" "Type of shape";
-          parameter SI.Position[3] r_shape = {0, 0, 0} "Vector from frame_a to shape origin, resolved in frame_a";
+          parameter SI.Position r_shape[3] = {0, 0, 0} "Vector from frame_a to shape origin, resolved in frame_a";
           parameter Types.Axis lengthDirection = to_unit1(r - r_shape) "Vector in length direction of shape, resolved in frame_a" annotation(Evaluate = true);
           parameter Types.Axis widthDirection = {0, 1, 0} "Vector in width direction of shape, resolved in frame_a" annotation(Evaluate = true);
           parameter SI.Length length = Modelica.Math.Vectors.length(r - r_shape) "Length of shape";
-          parameter SI.Distance width = length / world.defaultWidthFraction "Width of shape";
+          parameter SI.Distance width = length/world.defaultWidthFraction "Width of shape";
           parameter SI.Distance height = width "Height of shape";
           parameter Types.ShapeExtra extra = 0.0 "Additional parameter depending on shapeType (see docu of Visualizers.Advanced.Shape)";
           input Types.Color color = Modelica.Mechanics.MultiBody.Types.Defaults.RodColor "Color of shape";
@@ -664,7 +689,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           import Modelica.Units.Conversions.to_unit1;
           Modelica.Mechanics.MultiBody.Interfaces.Frame_a frame_a "Coordinate system fixed at body";
           parameter Boolean animation = true "= true, if animation shall be enabled (show cylinder and sphere)";
-          parameter SI.Position[3] r_CM(start = {0, 0, 0}) "Vector from frame_a to center of mass, resolved in frame_a";
+          parameter SI.Position r_CM[3](start = {0, 0, 0}) "Vector from frame_a to center of mass, resolved in frame_a";
           parameter SI.Mass m(min = 0, start = 1) "Mass of rigid body";
           parameter SI.Inertia I_11(min = 0) = 0.001 "Element (1,1) of inertia tensor";
           parameter SI.Inertia I_22(min = 0) = 0.001 "Element (2,2) of inertia tensor";
@@ -672,39 +697,39 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           parameter SI.Inertia I_21(min = -C.inf) = 0 "Element (2,1) of inertia tensor";
           parameter SI.Inertia I_31(min = -C.inf) = 0 "Element (3,1) of inertia tensor";
           parameter SI.Inertia I_32(min = -C.inf) = 0 "Element (3,2) of inertia tensor";
-          SI.Position[3] r_0(start = {0, 0, 0}, each stateSelect = if enforceStates then StateSelect.always else StateSelect.avoid) "Position vector from origin of world frame to origin of frame_a";
-          SI.Velocity[3] v_0(start = {0, 0, 0}, each stateSelect = if enforceStates then StateSelect.always else StateSelect.avoid) "Absolute velocity of frame_a, resolved in world frame (= der(r_0))";
-          SI.Acceleration[3] a_0(start = {0, 0, 0}) "Absolute acceleration of frame_a resolved in world frame (= der(v_0))";
+          SI.Position r_0[3](start = {0, 0, 0}, each stateSelect = if enforceStates then StateSelect.always else StateSelect.avoid) "Position vector from origin of world frame to origin of frame_a";
+          SI.Velocity v_0[3](start = {0, 0, 0}, each stateSelect = if enforceStates then StateSelect.always else StateSelect.avoid) "Absolute velocity of frame_a, resolved in world frame (= der(r_0))";
+          SI.Acceleration a_0[3](start = {0, 0, 0}) "Absolute acceleration of frame_a resolved in world frame (= der(v_0))";
           parameter Boolean angles_fixed = false "= true, if angles_start are used as initial values, else as guess values" annotation(Evaluate = true);
-          parameter SI.Angle[3] angles_start = {0, 0, 0} "Initial values of angles to rotate world frame around 'sequence_start' axes into frame_a";
+          parameter SI.Angle angles_start[3] = {0, 0, 0} "Initial values of angles to rotate world frame around 'sequence_start' axes into frame_a";
           parameter Types.RotationSequence sequence_start = {1, 2, 3} "Sequence of rotations to rotate world frame into frame_a at initial time" annotation(Evaluate = true);
           parameter Boolean w_0_fixed = false "= true, if w_0_start are used as initial values, else as guess values" annotation(Evaluate = true);
-          parameter SI.AngularVelocity[3] w_0_start = {0, 0, 0} "Initial or guess values of angular velocity of frame_a resolved in world frame";
+          parameter SI.AngularVelocity w_0_start[3] = {0, 0, 0} "Initial or guess values of angular velocity of frame_a resolved in world frame";
           parameter Boolean z_0_fixed = false "= true, if z_0_start are used as initial values, else as guess values" annotation(Evaluate = true);
-          parameter SI.AngularAcceleration[3] z_0_start = {0, 0, 0} "Initial values of angular acceleration z_0 = der(w_0)";
+          parameter SI.AngularAcceleration z_0_start[3] = {0, 0, 0} "Initial values of angular acceleration z_0 = der(w_0)";
           parameter SI.Diameter sphereDiameter = world.defaultBodyDiameter "Diameter of sphere";
           input Types.Color sphereColor = Modelica.Mechanics.MultiBody.Types.Defaults.BodyColor "Color of sphere";
-          parameter SI.Diameter cylinderDiameter = sphereDiameter / Types.Defaults.BodyCylinderDiameterFraction "Diameter of cylinder";
+          parameter SI.Diameter cylinderDiameter = sphereDiameter/Types.Defaults.BodyCylinderDiameterFraction "Diameter of cylinder";
           input Types.Color cylinderColor = sphereColor "Color of cylinder";
           input Types.SpecularCoefficient specularCoefficient = world.defaultSpecularCoefficient "Reflection of ambient light (= 0: light is completely absorbed)";
           parameter Boolean enforceStates = false "= true, if absolute variables of body object shall be used as states (StateSelect.always)" annotation(Evaluate = true);
           parameter Boolean useQuaternions = true "= true, if quaternions shall be used as potential states otherwise use 3 angles as potential states" annotation(Evaluate = true);
           parameter Types.RotationSequence sequence_angleStates = {1, 2, 3} "Sequence of rotations to rotate world frame into frame_a around the 3 angles used as potential states" annotation(Evaluate = true);
-          final parameter SI.Inertia[3, 3] I = [I_11, I_21, I_31; I_21, I_22, I_32; I_31, I_32, I_33] "Inertia tensor";
+          final parameter SI.Inertia I[3, 3] = [I_11, I_21, I_31; I_21, I_22, I_32; I_31, I_32, I_33] "Inertia tensor";
           final parameter Frames.Orientation R_start = Modelica.Mechanics.MultiBody.Frames.axesRotations(sequence_start, angles_start, zeros(3)) "Orientation object from world frame to frame_a at initial time";
-          SI.AngularVelocity[3] w_a(start = Frames.resolve2(R_start, w_0_start), fixed = fill(w_0_fixed, 3), each stateSelect = if enforceStates then if useQuaternions then StateSelect.always else StateSelect.never else StateSelect.avoid) "Absolute angular velocity of frame_a resolved in frame_a";
-          SI.AngularAcceleration[3] z_a(start = Frames.resolve2(R_start, z_0_start), fixed = fill(z_0_fixed, 3)) "Absolute angular acceleration of frame_a resolved in frame_a";
-          SI.Acceleration[3] g_0 "Gravity acceleration resolved in world frame";
+          SI.AngularVelocity w_a[3](start = Frames.resolve2(R_start, w_0_start), fixed = fill(w_0_fixed, 3), each stateSelect = if enforceStates then (if useQuaternions then StateSelect.always else StateSelect.never) else StateSelect.avoid) "Absolute angular velocity of frame_a resolved in frame_a";
+          SI.AngularAcceleration z_a[3](start = Frames.resolve2(R_start, z_0_start), fixed = fill(z_0_fixed, 3)) "Absolute angular acceleration of frame_a resolved in frame_a";
+          SI.Acceleration g_0[3] "Gravity acceleration resolved in world frame";
         protected
           outer Modelica.Mechanics.MultiBody.World world;
           parameter Frames.Quaternions.Orientation Q_start = Frames.to_Q(R_start) "Quaternion orientation object from world frame to frame_a at initial time";
-          Frames.Quaternions.Orientation Q(start = Q_start, each stateSelect = if enforceStates then if useQuaternions then StateSelect.prefer else StateSelect.never else StateSelect.avoid) "Quaternion orientation object from world frame to frame_a (dummy value, if quaternions are not used as states)";
-          parameter SI.Angle[3] phi_start = if sequence_start[1] == sequence_angleStates[1] and sequence_start[2] == sequence_angleStates[2] and sequence_start[3] == sequence_angleStates[3] then angles_start else Frames.axesRotationsAngles(R_start, sequence_angleStates) "Potential angle states at initial time";
-          SI.Angle[3] phi(start = phi_start, each stateSelect = if enforceStates then if useQuaternions then StateSelect.never else StateSelect.always else StateSelect.avoid) "Dummy or 3 angles to rotate world frame into frame_a of body";
-          SI.AngularVelocity[3] phi_d(each stateSelect = if enforceStates then if useQuaternions then StateSelect.never else StateSelect.always else StateSelect.avoid) "= der(phi)";
-          SI.AngularAcceleration[3] phi_dd "= der(phi_d)";
-          Visualizers.Advanced.Shape cylinder(shapeType = "cylinder", color = cylinderColor, specularCoefficient = specularCoefficient, length = if Modelica.Math.Vectors.length(r_CM) > sphereDiameter / 2 then Modelica.Math.Vectors.length(r_CM) - (if cylinderDiameter > 1.1 * sphereDiameter then sphereDiameter / 2 else 0) else 0, width = cylinderDiameter, height = cylinderDiameter, lengthDirection = to_unit1(r_CM), widthDirection = {0, 1, 0}, r = frame_a.r_0, R = frame_a.R) if world.enableAnimation and animation;
-          Visualizers.Advanced.Shape sphere(shapeType = "sphere", color = sphereColor, specularCoefficient = specularCoefficient, length = sphereDiameter, width = sphereDiameter, height = sphereDiameter, lengthDirection = {1, 0, 0}, widthDirection = {0, 1, 0}, r_shape = r_CM - {1, 0, 0} * sphereDiameter / 2, r = frame_a.r_0, R = frame_a.R) if world.enableAnimation and animation and sphereDiameter > 0;
+          Frames.Quaternions.Orientation Q(start = Q_start, each stateSelect = if enforceStates then (if useQuaternions then StateSelect.prefer else StateSelect.never) else StateSelect.avoid) "Quaternion orientation object from world frame to frame_a (dummy value, if quaternions are not used as states)";
+          parameter SI.Angle phi_start[3] = if sequence_start[1] == sequence_angleStates[1] and sequence_start[2] == sequence_angleStates[2] and sequence_start[3] == sequence_angleStates[3] then angles_start else Frames.axesRotationsAngles(R_start, sequence_angleStates) "Potential angle states at initial time";
+          SI.Angle phi[3](start = phi_start, each stateSelect = if enforceStates then (if useQuaternions then StateSelect.never else StateSelect.always) else StateSelect.avoid) "Dummy or 3 angles to rotate world frame into frame_a of body";
+          SI.AngularVelocity phi_d[3](each stateSelect = if enforceStates then (if useQuaternions then StateSelect.never else StateSelect.always) else StateSelect.avoid) "= der(phi)";
+          SI.AngularAcceleration phi_dd[3] "= der(phi_d)";
+          Visualizers.Advanced.Shape cylinder(shapeType = "cylinder", color = cylinderColor, specularCoefficient = specularCoefficient, length = if Modelica.Math.Vectors.length(r_CM) > sphereDiameter/2 then Modelica.Math.Vectors.length(r_CM) - (if cylinderDiameter > 1.1*sphereDiameter then sphereDiameter/2 else 0) else 0, width = cylinderDiameter, height = cylinderDiameter, lengthDirection = to_unit1(r_CM), widthDirection = {0, 1, 0}, r = frame_a.r_0, R = frame_a.R) if world.enableAnimation and animation;
+          Visualizers.Advanced.Shape sphere(shapeType = "sphere", color = sphereColor, specularCoefficient = specularCoefficient, length = sphereDiameter, width = sphereDiameter, height = sphereDiameter, lengthDirection = {1, 0, 0}, widthDirection = {0, 1, 0}, r_shape = r_CM - {1, 0, 0}*sphereDiameter/2, r = frame_a.r_0, R = frame_a.R) if world.enableAnimation and animation and sphereDiameter > 0;
         initial equation
           if angles_fixed then
             if not Connections.isRoot(frame_a.R) then
@@ -744,8 +769,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           a_0 = der(v_0);
           w_a = Frames.angularVelocity2(frame_a.R);
           z_a = der(w_a);
-          frame_a.f = m * (Frames.resolve2(frame_a.R, a_0 - g_0) + cross(z_a, r_CM) + cross(w_a, cross(w_a, r_CM)));
-          frame_a.t = I * z_a + cross(w_a, I * w_a) + cross(r_CM, frame_a.f);
+          frame_a.f = m*(Frames.resolve2(frame_a.R, a_0 - g_0) + cross(z_a, r_CM) + cross(w_a, cross(w_a, r_CM)));
+          frame_a.t = I*z_a + cross(w_a, I*w_a) + cross(r_CM, frame_a.f);
         end Body;
 
         model BodyShape "Rigid body with mass, inertia tensor, different shapes for animation, and two frame connectors (12 potential states)"
@@ -755,8 +780,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           Interfaces.Frame_b frame_b "Coordinate system fixed to the component with one cut-force and cut-torque";
           parameter Boolean animation = true "= true, if animation shall be enabled (show shape between frame_a and frame_b and optionally a sphere at the center of mass)";
           parameter Boolean animateSphere = true "= true, if mass shall be animated as sphere provided animation=true";
-          parameter SI.Position[3] r(start = {0, 0, 0}) "Vector from frame_a to frame_b resolved in frame_a";
-          parameter SI.Position[3] r_CM(start = {0, 0, 0}) "Vector from frame_a to center of mass, resolved in frame_a";
+          parameter SI.Position r[3](start = {0, 0, 0}) "Vector from frame_a to frame_b resolved in frame_a";
+          parameter SI.Position r_CM[3](start = {0, 0, 0}) "Vector from frame_a to center of mass, resolved in frame_a";
           parameter SI.Mass m(min = 0, start = 1) "Mass of rigid body";
           parameter SI.Inertia I_11(min = 0) = 0.001 "Element (1,1) of inertia tensor";
           parameter SI.Inertia I_22(min = 0) = 0.001 "Element (2,2) of inertia tensor";
@@ -764,26 +789,26 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           parameter SI.Inertia I_21(min = -C.inf) = 0 "Element (2,1) of inertia tensor";
           parameter SI.Inertia I_31(min = -C.inf) = 0 "Element (3,1) of inertia tensor";
           parameter SI.Inertia I_32(min = -C.inf) = 0 "Element (3,2) of inertia tensor";
-          SI.Position[3] r_0(start = {0, 0, 0}, each stateSelect = if enforceStates then StateSelect.always else StateSelect.avoid) "Position vector from origin of world frame to origin of frame_a";
-          SI.Velocity[3] v_0(start = {0, 0, 0}, each stateSelect = if enforceStates then StateSelect.always else StateSelect.avoid) "Absolute velocity of frame_a, resolved in world frame (= der(r_0))";
-          SI.Acceleration[3] a_0(start = {0, 0, 0}) "Absolute acceleration of frame_a resolved in world frame (= der(v_0))";
+          SI.Position r_0[3](start = {0, 0, 0}, each stateSelect = if enforceStates then StateSelect.always else StateSelect.avoid) "Position vector from origin of world frame to origin of frame_a";
+          SI.Velocity v_0[3](start = {0, 0, 0}, each stateSelect = if enforceStates then StateSelect.always else StateSelect.avoid) "Absolute velocity of frame_a, resolved in world frame (= der(r_0))";
+          SI.Acceleration a_0[3](start = {0, 0, 0}) "Absolute acceleration of frame_a resolved in world frame (= der(v_0))";
           parameter Boolean angles_fixed = false "= true, if angles_start are used as initial values, else as guess values" annotation(Evaluate = true);
-          parameter SI.Angle[3] angles_start = {0, 0, 0} "Initial values of angles to rotate world frame around 'sequence_start' axes into frame_a";
+          parameter SI.Angle angles_start[3] = {0, 0, 0} "Initial values of angles to rotate world frame around 'sequence_start' axes into frame_a";
           parameter Types.RotationSequence sequence_start = {1, 2, 3} "Sequence of rotations to rotate world frame into frame_a at initial time" annotation(Evaluate = true);
           parameter Boolean w_0_fixed = false "= true, if w_0_start are used as initial values, else as guess values" annotation(Evaluate = true);
-          parameter SI.AngularVelocity[3] w_0_start = {0, 0, 0} "Initial or guess values of angular velocity of frame_a resolved in world frame";
+          parameter SI.AngularVelocity w_0_start[3] = {0, 0, 0} "Initial or guess values of angular velocity of frame_a resolved in world frame";
           parameter Boolean z_0_fixed = false "= true, if z_0_start are used as initial values, else as guess values" annotation(Evaluate = true);
-          parameter SI.AngularAcceleration[3] z_0_start = {0, 0, 0} "Initial values of angular acceleration z_0 = der(w_0)";
+          parameter SI.AngularAcceleration z_0_start[3] = {0, 0, 0} "Initial values of angular acceleration z_0 = der(w_0)";
           parameter Types.ShapeType shapeType = "cylinder" "Type of shape";
-          parameter SI.Position[3] r_shape = {0, 0, 0} "Vector from frame_a to shape origin, resolved in frame_a";
+          parameter SI.Position r_shape[3] = {0, 0, 0} "Vector from frame_a to shape origin, resolved in frame_a";
           parameter Types.Axis lengthDirection = to_unit1(r - r_shape) "Vector in length direction of shape, resolved in frame_a" annotation(Evaluate = true);
           parameter Types.Axis widthDirection = {0, 1, 0} "Vector in width direction of shape, resolved in frame_a" annotation(Evaluate = true);
           parameter SI.Length length = Modelica.Math.Vectors.length(r - r_shape) "Length of shape";
-          parameter SI.Distance width = length / world.defaultWidthFraction "Width of shape";
+          parameter SI.Distance width = length/world.defaultWidthFraction "Width of shape";
           parameter SI.Distance height = width "Height of shape";
           parameter Types.ShapeExtra extra = 0.0 "Additional parameter depending on shapeType (see docu of Visualizers.Advanced.Shape)";
           input Types.Color color = Modelica.Mechanics.MultiBody.Types.Defaults.BodyColor "Color of shape";
-          parameter SI.Diameter sphereDiameter = 2 * width "Diameter of sphere";
+          parameter SI.Diameter sphereDiameter = 2*width "Diameter of sphere";
           input Types.Color sphereColor = color "Color of sphere of mass";
           input Types.SpecularCoefficient specularCoefficient = world.defaultSpecularCoefficient "Reflection of ambient light (= 0: light is completely absorbed)";
           parameter Boolean enforceStates = false "= true, if absolute variables of body object shall be used as states (StateSelect.always)" annotation(Evaluate = true);
@@ -794,7 +819,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
         protected
           outer Modelica.Mechanics.MultiBody.World world;
           Visualizers.Advanced.Shape shape1(shapeType = shapeType, color = color, specularCoefficient = specularCoefficient, length = length, width = width, height = height, lengthDirection = lengthDirection, widthDirection = widthDirection, r_shape = r_shape, extra = extra, r = frame_a.r_0, R = frame_a.R) if world.enableAnimation and animation;
-          Visualizers.Advanced.Shape shape2(shapeType = "sphere", color = sphereColor, specularCoefficient = specularCoefficient, length = sphereDiameter, width = sphereDiameter, height = sphereDiameter, lengthDirection = {1, 0, 0}, widthDirection = {0, 1, 0}, r_shape = r_CM - {1, 0, 0} * sphereDiameter / 2, r = frame_a.r_0, R = frame_a.R) if world.enableAnimation and animation and animateSphere;
+          Visualizers.Advanced.Shape shape2(shapeType = "sphere", color = sphereColor, specularCoefficient = specularCoefficient, length = sphereDiameter, width = sphereDiameter, height = sphereDiameter, lengthDirection = {1, 0, 0}, widthDirection = {0, 1, 0}, r_shape = r_CM - {1, 0, 0}*sphereDiameter/2, r = frame_a.r_0, R = frame_a.R) if world.enableAnimation and animation and animateSphere;
         equation
           r_0 = frame_a.r_0;
           v_0 = der(r_0);
@@ -813,39 +838,39 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           Interfaces.Frame_a frame_a "Coordinate system fixed to the component with one cut-force and cut-torque";
           Interfaces.Frame_b frame_b "Coordinate system fixed to the component with one cut-force and cut-torque";
           parameter Boolean animation = true "= true, if animation shall be enabled (show cylinder between frame_a and frame_b)";
-          parameter SI.Position[3] r(start = {0.1, 0, 0}) "Vector from frame_a to frame_b, resolved in frame_a";
-          parameter SI.Position[3] r_shape = {0, 0, 0} "Vector from frame_a to cylinder origin, resolved in frame_a";
+          parameter SI.Position r[3](start = {0.1, 0, 0}) "Vector from frame_a to frame_b, resolved in frame_a";
+          parameter SI.Position r_shape[3] = {0, 0, 0} "Vector from frame_a to cylinder origin, resolved in frame_a";
           parameter Modelica.Mechanics.MultiBody.Types.Axis lengthDirection = to_unit1(r - r_shape) "Vector in length direction of cylinder, resolved in frame_a" annotation(Evaluate = true);
           parameter SI.Length length = Modelica.Math.Vectors.length(r - r_shape) "Length of cylinder";
-          parameter SI.Distance diameter = length / world.defaultWidthFraction "Diameter of cylinder";
+          parameter SI.Distance diameter = length/world.defaultWidthFraction "Diameter of cylinder";
           parameter SI.Distance innerDiameter = 0 "Inner diameter of cylinder (0 <= innerDiameter <= Diameter)";
           parameter SI.Density density = 7700 "Density of cylinder (e.g., steel: 7700 .. 7900, wood : 400 .. 800)";
           input Modelica.Mechanics.MultiBody.Types.Color color = Modelica.Mechanics.MultiBody.Types.Defaults.BodyColor "Color of cylinder";
           input Types.SpecularCoefficient specularCoefficient = world.defaultSpecularCoefficient "Reflection of ambient light (= 0: light is completely absorbed)";
-          SI.Position[3] r_0(start = {0, 0, 0}, each stateSelect = if enforceStates then StateSelect.always else StateSelect.avoid) "Position vector from origin of world frame to origin of frame_a";
-          SI.Velocity[3] v_0(start = {0, 0, 0}, each stateSelect = if enforceStates then StateSelect.always else StateSelect.avoid) "Absolute velocity of frame_a, resolved in world frame (= der(r_0))";
-          SI.Acceleration[3] a_0(start = {0, 0, 0}) "Absolute acceleration of frame_a resolved in world frame (= der(v_0))";
+          SI.Position r_0[3](start = {0, 0, 0}, each stateSelect = if enforceStates then StateSelect.always else StateSelect.avoid) "Position vector from origin of world frame to origin of frame_a";
+          SI.Velocity v_0[3](start = {0, 0, 0}, each stateSelect = if enforceStates then StateSelect.always else StateSelect.avoid) "Absolute velocity of frame_a, resolved in world frame (= der(r_0))";
+          SI.Acceleration a_0[3](start = {0, 0, 0}) "Absolute acceleration of frame_a resolved in world frame (= der(v_0))";
           parameter Boolean angles_fixed = false "= true, if angles_start are used as initial values, else as guess values" annotation(Evaluate = true);
-          parameter SI.Angle[3] angles_start = {0, 0, 0} "Initial values of angles to rotate world frame around 'sequence_start' axes into frame_a";
+          parameter SI.Angle angles_start[3] = {0, 0, 0} "Initial values of angles to rotate world frame around 'sequence_start' axes into frame_a";
           parameter Types.RotationSequence sequence_start = {1, 2, 3} "Sequence of rotations to rotate world frame into frame_a at initial time" annotation(Evaluate = true);
           parameter Boolean w_0_fixed = false "= true, if w_0_start are used as initial values, else as guess values" annotation(Evaluate = true);
-          parameter SI.AngularVelocity[3] w_0_start = {0, 0, 0} "Initial or guess values of angular velocity of frame_a resolved in world frame";
+          parameter SI.AngularVelocity w_0_start[3] = {0, 0, 0} "Initial or guess values of angular velocity of frame_a resolved in world frame";
           parameter Boolean z_0_fixed = false "= true, if z_0_start are used as initial values, else as guess values" annotation(Evaluate = true);
-          parameter SI.AngularAcceleration[3] z_0_start = {0, 0, 0} "Initial values of angular acceleration z_0 = der(w_0)";
+          parameter SI.AngularAcceleration z_0_start[3] = {0, 0, 0} "Initial values of angular acceleration z_0 = der(w_0)";
           parameter Boolean enforceStates = false "= true, if absolute variables of body object shall be used as states (StateSelect.always)" annotation(Evaluate = true);
           parameter Boolean useQuaternions = true "= true, if quaternions shall be used as potential states otherwise use 3 angles as potential states" annotation(Evaluate = true);
           parameter Types.RotationSequence sequence_angleStates = {1, 2, 3} "Sequence of rotations to rotate world frame into frame_a around the 3 angles used as potential states" annotation(Evaluate = true);
-          final parameter SI.Distance radius = diameter / 2 "Radius of cylinder";
-          final parameter SI.Distance innerRadius = innerDiameter / 2 "Inner-Radius of cylinder";
-          final parameter SI.Mass mo(min = 0) = density * pi * length * radius * radius "Mass of cylinder without hole";
-          final parameter SI.Mass mi(min = 0) = density * pi * length * innerRadius * innerRadius "Mass of hole of cylinder";
-          final parameter SI.Inertia I22 = (mo * (length * length + 3 * radius * radius) - mi * (length * length + 3 * innerRadius * innerRadius)) / 12 "Inertia with respect to axis through center of mass, perpendicular to cylinder axis";
+          final parameter SI.Distance radius = diameter/2 "Radius of cylinder";
+          final parameter SI.Distance innerRadius = innerDiameter/2 "Inner-Radius of cylinder";
+          final parameter SI.Mass mo(min = 0) = density*pi*length*radius*radius "Mass of cylinder without hole";
+          final parameter SI.Mass mi(min = 0) = density*pi*length*innerRadius*innerRadius "Mass of hole of cylinder";
+          final parameter SI.Inertia I22 = (mo*(length*length + 3*radius*radius) - mi*(length*length + 3*innerRadius*innerRadius))/12 "Inertia with respect to axis through center of mass, perpendicular to cylinder axis";
           final parameter SI.Mass m(min = 0) = mo - mi "Mass of cylinder";
           final parameter Frames.Orientation R = Frames.from_nxy(r, {0, 1, 0}) "Orientation object from frame_a to frame spanned by cylinder axis and axis perpendicular to cylinder axis";
-          final parameter SI.Position[3] r_CM = r_shape + normalizeWithAssert(lengthDirection) * length / 2 "Position vector from frame_a to center of mass, resolved in frame_a";
-          final parameter SI.Inertia[3, 3] I = Frames.resolveDyade1(R, diagonal({(mo * radius * radius - mi * innerRadius * innerRadius) / 2, I22, I22})) "Inertia tensor of cylinder with respect to center of mass, resolved in frame parallel to frame_a";
+          final parameter SI.Position r_CM[3] = r_shape + normalizeWithAssert(lengthDirection)*length/2 "Position vector from frame_a to center of mass, resolved in frame_a";
+          final parameter SI.Inertia I[3, 3] = Frames.resolveDyade1(R, diagonal({(mo*radius*radius - mi*innerRadius*innerRadius)/2, I22, I22})) "Inertia tensor of cylinder with respect to center of mass, resolved in frame parallel to frame_a";
           Body body(r_CM = r_CM, m = m, I_11 = I[1, 1], I_22 = I[2, 2], I_33 = I[3, 3], I_21 = I[2, 1], I_31 = I[3, 1], I_32 = I[3, 2], animation = false, sequence_start = sequence_start, angles_fixed = angles_fixed, angles_start = angles_start, w_0_fixed = w_0_fixed, w_0_start = w_0_start, z_0_fixed = z_0_fixed, z_0_start = z_0_start, useQuaternions = useQuaternions, sequence_angleStates = sequence_angleStates, enforceStates = false);
-          FixedTranslation frameTranslation(r = r, animation = animation, shapeType = "pipecylinder", r_shape = r_shape, lengthDirection = lengthDirection, length = length, width = diameter, height = diameter, extra = innerDiameter / diameter, color = color, specularCoefficient = specularCoefficient, widthDirection = {0, 1, 0});
+          FixedTranslation frameTranslation(r = r, animation = animation, shapeType = "pipecylinder", r_shape = r_shape, lengthDirection = lengthDirection, length = length, width = diameter, height = diameter, extra = innerDiameter/diameter, color = color, specularCoefficient = specularCoefficient, widthDirection = {0, 1, 0});
         protected
           outer Modelica.Mechanics.MultiBody.World world;
         equation
@@ -884,8 +909,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
               input SI.Distance lu = 1 "Length in direction u";
               input SI.Distance lv = 3 "Length in direction v";
             algorithm
-              X[:, :] := lu / 2 * transpose(fill(linspace(-1, 1, nu), nv));
-              Y[:, :] := lv / 2 * fill(linspace(-1, 1, nv), nu);
+              X[:, :] := lu/2*transpose(fill(linspace(-1, 1, nu), nv));
+              Y[:, :] := lv/2*fill(linspace(-1, 1, nv), nu);
               Z[:, :] := fill(0, nu, nv);
             end rectangle;
           end SurfaceCharacteristics;
@@ -900,11 +925,11 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             import Modelica.Mechanics.MultiBody.Frames;
             import T = Modelica.Mechanics.MultiBody.Frames.TransformationMatrices;
             input Modelica.Mechanics.MultiBody.Frames.Orientation R = Frames.nullRotation() "Orientation object to rotate the world frame into the object frame";
-            input SI.Position[3] r = {0, 0, 0} "Position vector from origin of world frame to origin of object frame, resolved in world frame";
-            input SI.Position[3] r_lines = {0, 0, 0} "Position vector from origin of object frame to the origin of 'lines' frame, resolved in object frame";
-            input Real[3] n_x(each final unit = "1") = {1, 0, 0} "Vector in direction of x-axis of 'lines' frame, resolved in object frame";
-            input Real[3] n_y(each final unit = "1") = {0, 1, 0} "Vector in direction of y-axis of 'lines' frame, resolved in object frame";
-            input SI.Position[:, 2, 2] lines = zeros(0, 2, 2) "List of start and end points of cylinders resolved in an x-y frame defined by n_x, n_y, e.g., {[0,0;1,1], [0,1;1,0], [2,0; 3,1]}";
+            input SI.Position r[3] = {0, 0, 0} "Position vector from origin of world frame to origin of object frame, resolved in world frame";
+            input SI.Position r_lines[3] = {0, 0, 0} "Position vector from origin of object frame to the origin of 'lines' frame, resolved in object frame";
+            input Real n_x[3](each final unit = "1") = {1, 0, 0} "Vector in direction of x-axis of 'lines' frame, resolved in object frame";
+            input Real n_y[3](each final unit = "1") = {0, 1, 0} "Vector in direction of y-axis of 'lines' frame, resolved in object frame";
+            input SI.Position lines[:, 2, 2] = zeros(0, 2, 2) "List of start and end points of cylinders resolved in an x-y frame defined by n_x, n_y, e.g., {[0,0;1,1], [0,1;1,0], [2,0; 3,1]}";
             input SI.Length diameter(min = 0) = 0.05 "Diameter of the cylinders defined by lines";
             input Modelica.Mechanics.MultiBody.Types.Color color = {0, 128, 255} "Color of cylinders";
             input Types.SpecularCoefficient specularCoefficient = 0.7 "Reflection of ambient light (= 0: light is completely absorbed)";
@@ -912,8 +937,8 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             parameter Integer n = size(lines, 1) "Number of cylinders";
             T.Orientation R_rel = T.from_nxy(n_x, n_y);
             T.Orientation R_lines = T.absoluteRotation(R.T, R_rel);
-            SI.Position[3] r_abs = r + T.resolve1(R.T, r_lines);
-            Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape[n] cylinders(each shapeType = "cylinder", lengthDirection = {T.resolve1(R_rel, vector([lines[i, 2, :] - lines[i, 1, :]; 0])) for i in 1:n}, length = {Modelica.Math.Vectors.length(lines[i, 2, :] - lines[i, 1, :]) for i in 1:n}, r = {r_abs + T.resolve1(R_lines, vector([lines[i, 1, :]; 0])) for i in 1:n}, each width = diameter, each height = diameter, each widthDirection = {0, 1, 0}, each color = color, each R = R, each specularCoefficient = specularCoefficient);
+            SI.Position r_abs[3] = r + T.resolve1(R.T, r_lines);
+            Modelica.Mechanics.MultiBody.Visualizers.Advanced.Shape cylinders[n](each shapeType = "cylinder", lengthDirection = {T.resolve1(R_rel, vector([lines[i, 2, :] - lines[i, 1, :]; 0])) for i in 1:n}, length = {Modelica.Math.Vectors.length(lines[i, 2, :] - lines[i, 1, :]) for i in 1:n}, r = {r_abs + T.resolve1(R_lines, vector([lines[i, 1, :]; 0])) for i in 1:n}, each width = diameter, each height = diameter, each widthDirection = {0, 1, 0}, each color = color, each R = R, each specularCoefficient = specularCoefficient);
           end Lines;
         end Internal;
       end Visualizers;
@@ -969,7 +994,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
           parameter SI.TranslationalSpringConstant c(final min = 0, start = 1) "Spring constant";
           parameter SI.Distance s_rel0 = 0 "Unstretched spring length";
         equation
-          f = c * (s_rel - s_rel0);
+          f = c*(s_rel - s_rel0);
         end Spring;
       end Components;
 
@@ -1060,31 +1085,31 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
 
       function length "Return length of a vector (better as norm(), if further symbolic processing is performed)"
         extends Modelica.Icons.Function;
-        input Real[:] v "Real vector";
+        input Real v[:] "Real vector";
         output Real result "Length of vector v";
       algorithm
-        result := sqrt(v * v);
+        result := sqrt(v*v);
         annotation(Inline = true);
       end length;
 
       function normalize "Return normalized vector such that length = 1 and prevent zero-division for zero vector"
         extends Modelica.Icons.Function;
-        input Real[:] v "Real vector";
-        input Real eps(min = 0.0) = 100 * Modelica.Constants.eps "if |v| < eps then result = v/eps";
-        output Real[size(v, 1)] result "Input vector v normalized to length=1";
+        input Real v[:] "Real vector";
+        input Real eps(min = 0.0) = 100*Modelica.Constants.eps "if |v| < eps then result = v/eps";
+        output Real result[size(v, 1)] "Input vector v normalized to length=1";
       algorithm
-        result := smooth(0, if length(v) >= eps then v / length(v) else v / eps);
+        result := smooth(0, if length(v) >= eps then v/length(v) else v/eps);
         annotation(Inline = true);
       end normalize;
 
       function normalizeWithAssert "Return normalized vector such that length = 1 (trigger an assert for zero vector)"
         import Modelica.Math.Vectors.length;
         extends Modelica.Icons.Function;
-        input Real[:] v "Real vector";
-        output Real[size(v, 1)] result "Input vector v normalized to length=1";
+        input Real v[:] "Real vector";
+        output Real result[size(v, 1)] "Input vector v normalized to length=1";
       algorithm
         assert(length(v) > 0.0, "Vector v={0,0,0} shall be normalized (= v/sqrt(v*v)), but this results in a division by zero.\nProvide a non-zero vector!");
-        result := v / length(v);
+        result := v/length(v);
         annotation(Inline = true);
       end normalizeWithAssert;
     end Vectors;
@@ -1152,15 +1177,15 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             import Modelica.Mechanics.MultiBody.Types;
             parameter Types.ShapeType shapeType = "box" "Type of shape (box, sphere, cylinder, pipecylinder, cone, pipe, beam, gearwheel, spring, <external shape>)";
             input Frames.Orientation R = Frames.nullRotation() "Orientation object to rotate the world frame into the object frame";
-            input SI.Position[3] r = {0, 0, 0} "Position vector from origin of world frame to origin of object frame, resolved in world frame";
-            input SI.Position[3] r_shape = {0, 0, 0} "Position vector from origin of object frame to shape origin, resolved in object frame";
-            input Real[3] lengthDirection(each final unit = "1") = {1, 0, 0} "Vector in length direction, resolved in object frame";
-            input Real[3] widthDirection(each final unit = "1") = {0, 1, 0} "Vector in width direction, resolved in object frame";
+            input SI.Position r[3] = {0, 0, 0} "Position vector from origin of world frame to origin of object frame, resolved in world frame";
+            input SI.Position r_shape[3] = {0, 0, 0} "Position vector from origin of object frame to shape origin, resolved in object frame";
+            input Real lengthDirection[3](each final unit = "1") = {1, 0, 0} "Vector in length direction, resolved in object frame";
+            input Real widthDirection[3](each final unit = "1") = {0, 1, 0} "Vector in width direction, resolved in object frame";
             input SI.Length length = 0 "Length of visual object";
             input SI.Length width = 0 "Width of visual object";
             input SI.Length height = 0 "Height of visual object";
             input Types.ShapeExtra extra = 0.0 "Additional size data for some of the shape types";
-            input Real[3] color = {255, 0, 0} "Color of shape";
+            input Real color[3] = {255, 0, 0} "Color of shape";
             input Types.SpecularCoefficient specularCoefficient = 0.7 "Reflection of ambient light (= 0: light is completely absorbed)";
           end PartialShape;
 
@@ -1168,13 +1193,13 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
             import Modelica.Mechanics.MultiBody.Frames;
             import Modelica.Mechanics.MultiBody.Types;
             input Frames.Orientation R = Frames.nullRotation() "Orientation object to rotate the world frame into the surface frame";
-            input SI.Position[3] r_0 = {0, 0, 0} "Position vector from origin of world frame to origin of surface frame, resolved in world frame";
+            input SI.Position r_0[3] = {0, 0, 0} "Position vector from origin of world frame to origin of surface frame, resolved in world frame";
             parameter Integer nu = 2 "Number of points in u-Dimension";
             parameter Integer nv = 2 "Number of points in v-Dimension";
             replaceable function surfaceCharacteristic = Modelica.Mechanics.MultiBody.Interfaces.partialSurfaceCharacteristic "Function defining the surface characteristic" annotation(choicesAllMatching = true);
             parameter Boolean wireframe = false "= true: 3D model will be displayed without faces";
             parameter Boolean multiColoredSurface = false "= true: Color is defined for each surface point";
-            input Real[3] color = {255, 0, 0} "Color of surface";
+            input Real color[3] = {255, 0, 0} "Color of surface";
             input Types.SpecularCoefficient specularCoefficient = 0.7 "Reflection of ambient light (= 0: light is completely absorbed)";
             input Real transparency = 0 "Transparency of shape: 0 (= opaque) ... 1 (= fully transparent)";
           end PartialSurface;
@@ -1187,7 +1212,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
     extends Modelica.Icons.Package;
     import Modelica.Units.SI;
     import Modelica.Units.NonSI;
-    final constant Real pi = 2 * Modelica.Math.asin(1.0);
+    final constant Real pi = 2*Modelica.Math.asin(1.0);
     final constant Real eps = ModelicaServices.Machine.eps "Biggest number such that 1.0 + eps = 1.0";
     final constant Real inf = ModelicaServices.Machine.inf "Biggest Real number such that inf and -inf are representable on the machine";
     final constant SI.Velocity c = 299792458 "Speed of light in vacuum";
@@ -1196,7 +1221,7 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
     final constant Real h(final unit = "J.s") = 6.62607015e-34 "Planck constant";
     final constant Real k(final unit = "J/K") = 1.380649e-23 "Boltzmann constant";
     final constant Real N_A(final unit = "1/mol") = 6.02214076e23 "Avogadro constant";
-    final constant Real mu_0(final unit = "N/A2") = 4 * pi * 1.00000000055e-7 "Magnetic constant";
+    final constant Real mu_0(final unit = "N/A2") = 4*pi*1.00000000055e-7 "Magnetic constant";
   end Constants;
 
   package Icons "Library of icons"
@@ -1298,31 +1323,6 @@ package Modelica "Modelica Standard Library - Version 4.0.0"
   end Units;
   annotation(version = "4.0.0", versionDate = "2020-06-04", dateModified = "2020-06-04 11:00:00Z");
 end Modelica;
-
-package SuspensionSystem
-  import SI = Modelica.Units.SI;
-
-  package Components
-    model Wheel
-      parameter SI.Mass mT = 50 "suspended mass (Tyre)";
-      parameter SI.TranslationalSpringConstant kT = 250000;
-      parameter Modelica.Units.SI.Length wr = 0.35 "wheel radius";
-      Modelica.Mechanics.MultiBody.Interfaces.Frame_a zR;
-      Modelica.Mechanics.MultiBody.Parts.BodyShape WheelMass(animateSphere = false, color = {70, 70, 70}, height = 0.3, length = wr * 0.4, lengthDirection = {0, 0, 1}, m = mT, r = {0, wr * 0.65, 0}, r_0(start = {0, wr, 0}), r_CM = {0, wr * 0.65, 0}, r_shape = {0, wr * 0.65, 0}, width = wr * 2);
-      Modelica.Mechanics.MultiBody.Joints.Prismatic TyreElasticity(animation = true, boxColor = {50, 255, 50}, boxHeight = 0.3, n = {0, 1, 0}, s(start = wr / 5), useAxisFlange = true);
-      Modelica.Mechanics.Translational.Components.Spring TyreSpring(c = kT, s_rel(fixed = true, start = wr * 0.28), s_rel0 = wr * 0.35);
-      Modelica.Mechanics.MultiBody.Parts.BodyCylinder clip(diameter = 0.05, innerDiameter = 0.03, r = {0, 0.1, -0.1});
-      Modelica.Mechanics.MultiBody.Interfaces.Frame_b zT;
-    equation
-      connect(TyreElasticity.frame_a, zR);
-      connect(TyreElasticity.frame_b, WheelMass.frame_a);
-      connect(TyreElasticity.support, TyreSpring.flange_a);
-      connect(TyreSpring.flange_b, TyreElasticity.axis);
-      connect(clip.frame_b, zT);
-      connect(clip.frame_a, WheelMass.frame_b);
-    end Wheel;
-  end Components;
-end SuspensionSystem;
 
 model Wheel_total
   extends SuspensionSystem.Components.Wheel;
